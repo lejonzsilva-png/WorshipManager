@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      // Certifica-te que estas rotas também existem no server.py como /api/auth/me e /api/ministry
+      // CORREÇÃO: Alinhado com o prefixo /api definido no server.py
       const me = await api<User>("/auth/me");
       const min = await api<Ministry>("/ministry");
       setUser(me);
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // CORREÇÃO: Enviamos /login. O Client.ts já adiciona o /api, resultando em /api/login
+    // CORREÇÃO: O client.ts adiciona /api, logo enviamos /login
     const res = await api<{ token: string; user: User; ministry: Ministry }>("/login", {
       method: "POST",
       body: { email, password },
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ministry_name?: string;
     invite_code?: string;
   }) => {
-    // CORREÇÃO: Enviamos /signup. O Client.ts já adiciona o /api, resultando em /api/signup
+    // CORREÇÃO: Enviamos /signup para resultar em /api/signup no backend
     const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
       method: "POST",
       body: data,
