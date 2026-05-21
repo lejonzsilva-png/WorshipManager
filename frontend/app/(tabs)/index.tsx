@@ -335,8 +335,3 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: colors.textSecondary },
   linkBold: { color: colors.olive, fontWeight: "600", fontSize: 13 },
 });
- 8,
-  },
-  emptyText: { fontSize: 14, color: colors.textSecondary },
-  linkBold: { color: colors.olive, fontWeight: "600", fontSize: 13 },
-});
