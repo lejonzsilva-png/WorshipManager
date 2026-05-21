@@ -142,21 +142,39 @@ export default function Dashboard() {
 
         {/* Quick Stats */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push("/membros")}
+            testID="stat-members"
+            activeOpacity={0.7}
+          >
             <Ionicons name="people" size={20} color={colors.olive} />
             <Text style={styles.statValue}>{stats?.total_members || 0}</Text>
             <Text style={styles.statLabel}>Membros</Text>
-          </View>
-          <View style={styles.statCard}>
+            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push("/(tabs)/repertorio")}
+            testID="stat-songs"
+            activeOpacity={0.7}
+          >
             <Ionicons name="musical-notes" size={20} color={colors.terracotta} />
             <Text style={styles.statValue}>{stats?.total_songs || 0}</Text>
             <Text style={styles.statLabel}>Músicas</Text>
-          </View>
-          <View style={styles.statCard}>
+            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push("/(tabs)/escalas")}
+            testID="stat-scales"
+            activeOpacity={0.7}
+          >
             <Ionicons name="calendar" size={20} color={colors.info} />
             <Text style={styles.statValue}>{stats?.upcoming_scales || 0}</Text>
             <Text style={styles.statLabel}>Escalas</Text>
-          </View>
+            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
+          </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
@@ -277,7 +295,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     borderWidth: 1,
     borderColor: colors.border,
+    position: "relative",
   },
+  statArrow: { position: "absolute", top: 12, right: 10 },
   statValue: { fontSize: 22, fontWeight: "600", color: colors.text, marginTop: 8 },
   statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   actionsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md },
