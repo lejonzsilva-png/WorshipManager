@@ -7,18 +7,13 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ImageBackground,
   ActivityIndicator,
   ScrollView,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing } from "@/src/theme";
-
-const BG_URL =
-  "https://static.prod-images.emergentagent.com/jobs/70d88dd2-4187-48d2-aa02-3291c5b28e8e/images/93d8a138dfbe4522f0f3053f62821b8f9ea6408862b1e5e294ad0cb72e9168c7.png";
 
 export default function Login() {
   const router = useRouter();
@@ -46,13 +41,12 @@ export default function Login() {
   };
 
   return (
-    <ImageBackground source={{ uri: BG_URL }} style={styles.bg} testID="login-screen">
-      <View style={styles.overlay} />
+    <View style={styles.bg} testID="login-screen">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandWrap}>
             <View style={styles.logoCircle}>
-              <Ionicons name="musical-notes" size={32} color={colors.gold} />
+              <Ionicons name="musical-notes" size={28} color={colors.olive} />
             </View>
             <Text style={styles.brand}>LouvorApp</Text>
             <Text style={styles.tag}>Gestão do seu ministério de louvor</Text>
@@ -116,34 +110,35 @@ export default function Login() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  bg: { flex: 1, backgroundColor: colors.olive },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(26, 33, 24, 0.55)" },
+  bg: { flex: 1, backgroundColor: colors.bg },
   scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, paddingTop: 80 },
   brandWrap: { alignItems: "center", marginBottom: spacing.xl },
   logoCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: colors.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(230,185,122,0.4)",
+    borderColor: colors.border,
     marginBottom: spacing.md,
   },
-  brand: { color: "#fff", fontSize: 32, fontWeight: "600", letterSpacing: -0.5 },
-  tag: { color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 4 },
+  brand: { color: colors.text, fontSize: 32, fontWeight: "600", letterSpacing: -0.5 },
+  tag: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.lg,
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   title: { fontSize: 24, fontWeight: "600", color: colors.text },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
