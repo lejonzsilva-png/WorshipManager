@@ -1,7 +1,7 @@
 import { storage } from "@/src/utils/storage";
 
 // Substitui o URL abaixo pelo endereço real do teu Web Service no Render
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://worshipmanager.onrender.com";
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://worshipmanageraapp.onrender.com";
 const TOKEN_KEY = "louvor_token";
 
 export async function getToken(): Promise<string | null> {
