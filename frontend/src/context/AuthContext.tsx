@@ -103,15 +103,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invite_code?: string;
   }) => {
     try {
+      console.log("A enviar registo para o servidor...");
       const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
         method: "POST",
         body: data,
         auth: false,
       });
+      
+      console.log("Resposta recebida do servidor:", res); // <-- VÊ ISTO NO TERMINAL!
+
       await setToken(res.token);
       setUser(res.user);
       setMinistry(res.ministry);
+      
+      console.log("Estado atualizado com sucesso!");
     } catch (error: any) {
+      console.error("ERRO DETETADO NO FRONTEND:", error);
       Alert.alert("Erro no Registo", error.message || "Não foi possível criar a conta.");
       throw error;
     }
