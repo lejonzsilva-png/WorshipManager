@@ -20,6 +20,9 @@ class SignupSchema(BaseModel):
     ministry_name: str = None
     invite_code: str = None
 
+class GoogleAuthSchema(BaseModel):
+    token: str
+
 # Carrega o .env se existir
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -46,27 +49,117 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api = APIRouter(prefix="/api")
+# ==================== ROTAS DE AUTENTICAÇÃO ====================
 
-# Rotas corrigidas para alinhar com o AuthContext.tsx
-@api.post("/login")
+# Rota de login (sem /api prefix para alinhar com frontend)
+@app.post("/login")
 async def login(credentials: LoginSchema):
-    # Logica de autenticacao
-    return {"message": "Login efetuado com sucesso"}
+    """Autentica o utilizador com email e password"""
+    try:
+        # TODO: Implementar lógica de autenticação real
+        # - Verificar se o email existe na BD
+        # - Verificar a password
+        # - Gerar JWT token
+        return {
+            "success": True,
+            "message": "Login efetuado com sucesso",
+            "token": "fake-jwt-token",
+            "user": {
+                "id": "user-123",
+                "email": credentials.email,
+                "name": "Utilizador"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@api.post("/signup")
+# Rota de signup (sem /api prefix)
+@app.post("/signup")
 async def signup(data: SignupSchema):
-    # Logica de registo
-    return {"message": "Registo efetuado com sucesso"}
+    """Regista um novo utilizador"""
+    try:
+        # TODO: Implementar lógica de registo real
+        # - Verificar se o email já existe
+        # - Hash da password
+        # - Guardar na BD
+        # - Gerar JWT token
+        return {
+            "success": True,
+            "message": "Registo efetuado com sucesso",
+            "token": "fake-jwt-token",
+            "user": {
+                "id": "user-123",
+                "email": data.email,
+                "name": data.name
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@api.get("/auth/me")
+# Rota de autenticação com Google
+@app.post("/auth/google")
+async def auth_google(data: GoogleAuthSchema):
+    """Autentica o utilizador com Google"""
+    try:
+        # TODO: Implementar verificação do token Google
+        # - Verificar se o token é válido
+        # - Extrair dados do utilizador
+        # - Criar/atualizar utilizador na BD
+        # - Gerar JWT token
+        return {
+            "success": True,
+            "message": "Autenticação Google efetuada com sucesso",
+            "token": "fake-jwt-token",
+            "user": {
+                "id": "user-123",
+                "email": "user@gmail.com",
+                "name": "Utilizador Google"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== ROTAS DE UTILIZADOR ====================
+
+@app.get("/auth/me")
 async def get_me():
-    # Logica para retornar o utilizador
-    return {"message": "Dados do utilizador"}
+    """Retorna os dados do utilizador autenticado"""
+    # TODO: Verificar JWT token e retornar utilizador
+    return {
+        "id": "user-123",
+        "email": "user@example.com",
+        "name": "Utilizador",
+        "ministry_name": "Ministério Exemplo"
+    }
 
-@api.get("/ministry")
+# ==================== ROTAS DE MINISTÉRIO ====================
+
+@app.get("/ministry")
 async def get_ministry():
-    # Logica para retornar a ministério
-    return {"message": "Dados da ministério"}
+    """Retorna os dados da ministério do utilizador"""
+    # TODO: Buscar ministério da BD baseado no utilizador
+    return {
+        "id": "ministry-123",
+        "name": "Ministério Exemplo",
+        "description": "Descrição da ministério",
+        "members": []
+    }
 
-app.include_router(api) # Onde 'api' foi definido com prefix="/api"
+# ==================== HEALTH CHECK ====================
+
+@app.get("/health")
+async def health_check():
+    """Health check do servidor"""
+    return {
+        "status": "ok",
+        "message": "LouvorApp API está funcionando"
+    }
+
+@app.get("/")
+async def root():
+    """Rota raiz"""
+    return {
+        "name": "LouvorApp API",
+        "version": "1.0.0",
+        "status": "running"
+    }
