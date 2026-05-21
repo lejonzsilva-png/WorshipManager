@@ -31,8 +31,12 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   
-  // O path já deve chegar aqui com o prefixo necessário (ex: "/login" -> "/api/login")
-  const res = await fetch(`${BASE_URL}${path}`, {
+  // ✅ CORREÇÃO: Adiciona /api ao path
+  // /login -> /api/login
+  // /auth/me -> /api/auth/me
+  const fullPath = `/api${path}`;
+  
+  const res = await fetch(`${BASE_URL}${fullPath}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

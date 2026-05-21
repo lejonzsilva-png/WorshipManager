@@ -1,11 +1,12 @@
 """LouvorApp - Worship Ministry Management API."""
 from fastapi import FastAPI, APIRouter, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 import os
 import logging
+from typing import Optional
 from dotenv import load_dotenv
 
 # Configuração de tipos para o Pydantic
@@ -17,11 +18,12 @@ class SignupSchema(BaseModel):
     name: str
     email: EmailStr
     password: str
-    ministry_name: str = None
-    invite_code: str = None
+    ministry_name: Optional[str] = None
+    invite_code: Optional[str] = None
 
 class GoogleAuthSchema(BaseModel):
-    token: str
+    token: Optional[str] = None
+    session_id: Optional[str] = None
 
 # Carrega o .env se existir
 ROOT_DIR = Path(__file__).parent
@@ -49,10 +51,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ==================== CRIAR ROUTER COM /api PREFIX ====================
+api = APIRouter(prefix="/api")
+
 # ==================== ROTAS DE AUTENTICAÇÃO ====================
 
-# Rota de login (sem /api prefix para alinhar com frontend)
-@app.post("/login")
+@api.post("/login")
 async def login(credentials: LoginSchema):
     """Autentica o utilizador com email e password"""
     try:
@@ -68,13 +72,16 @@ async def login(credentials: LoginSchema):
                 "id": "user-123",
                 "email": credentials.email,
                 "name": "Utilizador"
+            },
+            "ministry": {
+                "id": "ministry-123",
+                "name": "Ministério Exemplo"
             }
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Rota de signup (sem /api prefix)
-@app.post("/signup")
+@api.post("/signup")
 async def signup(data: SignupSchema):
     """Regista um novo utilizador"""
     try:
@@ -91,21 +98,28 @@ async def signup(data: SignupSchema):
                 "id": "user-123",
                 "email": data.email,
                 "name": data.name
+            },
+            "ministry": {
+                "id": "ministry-123",
+                "name": data.ministry_name or "Minha Ministério"
             }
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Rota de autenticação com Google
-@app.post("/auth/google")
+@api.post("/auth/google")
 async def auth_google(data: GoogleAuthSchema):
     """Autentica o utilizador com Google"""
     try:
-        # TODO: Implementar verificação do token Google
-        # - Verificar se o token é válido
-        # - Extrair dados do utilizador
-        # - Criar/atualizar utilizador na BD
-        # - Gerar JWT token
+        # Usar token ou session_id (o que for enviado)
+        auth_value = data.token or data.session_id
+        
+        if not auth_value:
+            raise HTTPException(
+                status_code=400, 
+                detail="É necessário enviar 'token' ou 'session_id'"
+            )
+        
         return {
             "success": True,
             "message": "Autenticação Google efetuada com sucesso",
@@ -114,14 +128,20 @@ async def auth_google(data: GoogleAuthSchema):
                 "id": "user-123",
                 "email": "user@gmail.com",
                 "name": "Utilizador Google"
+            },
+            "ministry": {
+                "id": "ministry-123",
+                "name": "Ministério Google"
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 # ==================== ROTAS DE UTILIZADOR ====================
 
-@app.get("/auth/me")
+@api.get("/auth/me")
 async def get_me():
     """Retorna os dados do utilizador autenticado"""
     # TODO: Verificar JWT token e retornar utilizador
@@ -129,23 +149,31 @@ async def get_me():
         "id": "user-123",
         "email": "user@example.com",
         "name": "Utilizador",
-        "ministry_name": "Ministério Exemplo"
+        "role": "member",
+        "ministry_id": "ministry-123",
+        "instruments": [],
+        "permissions": [],
+        "avatar_color": "#FF6B6B"
     }
 
 # ==================== ROTAS DE MINISTÉRIO ====================
 
-@app.get("/ministry")
+@api.get("/ministry")
 async def get_ministry():
     """Retorna os dados da ministério do utilizador"""
     # TODO: Buscar ministério da BD baseado no utilizador
     return {
         "id": "ministry-123",
         "name": "Ministério Exemplo",
-        "description": "Descrição da ministério",
-        "members": []
+        "invite_code": "ABC123",
+        "api_key": "key-123",
+        "created_by": "user-123"
     }
 
-# ==================== HEALTH CHECK ====================
+# ==================== INCLUIR ROUTER ====================
+app.include_router(api)
+
+# ==================== HEALTH CHECK (sem /api prefix) ====================
 
 @app.get("/health")
 async def health_check():
