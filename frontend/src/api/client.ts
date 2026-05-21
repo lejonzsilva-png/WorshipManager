@@ -1,6 +1,5 @@
 import { storage } from "@/src/utils/storage";
 
-// URL base do teu backend no Render
 const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://worshipmanageraapp.onrender.com";
 const TOKEN_KEY = "louvor_token";
 
@@ -32,9 +31,7 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   
-  // Alteração: Removido o "/api" estático daqui, 
-  // pois o path que recebes (ex: "/login") já deve ser concatenado ao BASE_URL.
-  // Se o teu Router tem prefixo "/api", garante que envias o path como "/api/login"
+  // O path já deve chegar aqui com o prefixo necessário (ex: "/login" -> "/api/login")
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,

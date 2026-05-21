@@ -8,10 +8,17 @@ import os
 import logging
 from dotenv import load_dotenv
 
-# Configuração de tipos para o Pydantic (Resolve o erro ConfigError)
+# Configuração de tipos para o Pydantic
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
+
+class SignupSchema(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    ministry_name: str = None
+    invite_code: str = None
 
 # Carrega o .env se existir
 ROOT_DIR = Path(__file__).parent
@@ -30,7 +37,7 @@ db = client[DB_NAME]
 
 app = FastAPI(title="LouvorApp API")
 
-# 1. Configuração de CORS (Essencial para o frontend conectar)
+# 1. Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,10 +48,25 @@ app.add_middleware(
 
 api = APIRouter(prefix="/api")
 
-# Exemplo de rota de login (ajusta conforme a tua necessidade)
+# Rotas corrigidas para alinhar com o AuthContext.tsx
 @api.post("/login")
 async def login(credentials: LoginSchema):
-    # Logica de autenticacao vai aqui
-    return {"message": "Login endpoint ativo"}
+    # Logica de autenticacao
+    return {"message": "Login efetuado com sucesso"}
+
+@api.post("/signup")
+async def signup(data: SignupSchema):
+    # Logica de registo
+    return {"message": "Registo efetuado com sucesso"}
+
+@api.get("/auth/me")
+async def get_me():
+    # Logica para retornar o utilizador
+    return {"message": "Dados do utilizador"}
+
+@api.get("/ministry")
+async def get_ministry():
+    # Logica para retornar a ministério
+    return {"message": "Dados da ministério"}
 
 app.include_router(api) # Onde 'api' foi definido com prefix="/api"

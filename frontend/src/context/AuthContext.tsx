@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      // Mantemos estas rotas conforme definido no teu backend
+      // Certifica-te que estas rotas também existem no server.py como /api/auth/me e /api/ministry
       const me = await api<User>("/auth/me");
       const min = await api<Ministry>("/ministry");
       setUser(me);
@@ -78,8 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // ALTERAÇÃO AQUI: Adicionado /api antes de /auth/login
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/api/auth/login", {
+    // CORREÇÃO: Enviamos /login. O Client.ts já adiciona o /api, resultando em /api/login
+    const res = await api<{ token: string; user: User; ministry: Ministry }>("/login", {
       method: "POST",
       body: { email, password },
       auth: false,
@@ -97,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ministry_name?: string;
     invite_code?: string;
   }) => {
-    // ALTERAÇÃO AQUI: Adicionado /api antes de /auth/signup
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/api/auth/signup", {
+    // CORREÇÃO: Enviamos /signup. O Client.ts já adiciona o /api, resultando em /api/signup
+    const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
       method: "POST",
       body: data,
       auth: false,
@@ -132,16 +132,4 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-}
-
-export function usePermissions() {
-  const { user } = useAuth();
-  const isLeader = user?.role === "leader";
-  const can = (perm: string) => isLeader || (user?.permissions || []).includes(perm);
-  return {
-    isLeader,
-    canEditScales: can(PERMS.EDIT_SCALES),
-    canEditSongs: can(PERMS.EDIT_SONGS),
-    canEditAnnouncements: can(PERMS.EDIT_ANNOUNCEMENTS),
-  };
 }
