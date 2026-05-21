@@ -192,11 +192,11 @@ export default function Dashboard() {
             </View>
             <Text style={styles.actionText}>Nova Música</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/membros")} testID="qa-members">
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/convidar")} testID="qa-members">
             <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="people" size={26} color={colors.info} />
+              <Ionicons name="person-add" size={26} color={colors.info} />
             </View>
-            <Text style={styles.actionText}>Membros</Text>
+            <Text style={styles.actionText}>Novo Membro</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/avisos")} testID="qa-announcements">
             <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>

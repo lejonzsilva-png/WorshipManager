@@ -20,6 +20,7 @@ export default function RootLayout() {
             <Stack.Screen name="musica/[id]" options={{ presentation: "card" }} />
             <Stack.Screen name="musica/nova" options={{ presentation: "modal" }} />
             <Stack.Screen name="membros" />
+            <Stack.Screen name="convidar" />
             <Stack.Screen name="avisos" />
             <Stack.Screen name="aviso/novo" options={{ presentation: "modal" }} />
             <Stack.Screen name="api-docs" />
