@@ -47,7 +47,4 @@ async def login(credentials: LoginSchema):
     # Logica de autenticacao vai aqui
     return {"message": "Login endpoint ativo"}
 
-app.include_router(api)
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("louvorapp")
+app.include_router(api) # Onde 'api' foi definido com prefix="/api"

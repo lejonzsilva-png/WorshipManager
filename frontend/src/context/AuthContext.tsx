@@ -58,11 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
+      // Mantemos estas rotas conforme definido no teu backend
       const me = await api<User>("/auth/me");
       const min = await api<Ministry>("/ministry");
       setUser(me);
       setMinistry(min);
-      // Best-effort push token registration (silent fail)
       registerExpoPushToken().catch(() => {});
     } catch {
       await clearToken();
@@ -78,7 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/auth/login", {
+    // ALTERAÇÃO AQUI: Adicionado /api antes de /auth/login
+    const res = await api<{ token: string; user: User; ministry: Ministry }>("/api/auth/login", {
       method: "POST",
       body: { email, password },
       auth: false,
@@ -96,7 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ministry_name?: string;
     invite_code?: string;
   }) => {
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/auth/signup", {
+    // ALTERAÇÃO AQUI: Adicionado /api antes de /auth/signup
+    const res = await api<{ token: string; user: User; ministry: Ministry }>("/api/auth/signup", {
       method: "POST",
       body: data,
       auth: false,
