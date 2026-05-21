@@ -8,9 +8,16 @@ export type User = {
   role: "leader" | "member";
   ministry_id: string;
   instruments: string[];
+  permissions: string[];
   phone?: string | null;
   avatar_color: string;
 };
+
+export const PERMS = {
+  EDIT_SCALES: "edit_scales",
+  EDIT_SONGS: "edit_songs",
+  EDIT_ANNOUNCEMENTS: "edit_announcements",
+} as const;
 
 export type Ministry = {
   id: string;
@@ -119,4 +126,16 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+export function usePermissions() {
+  const { user } = useAuth();
+  const isLeader = user?.role === "leader";
+  const can = (perm: string) => isLeader || (user?.permissions || []).includes(perm);
+  return {
+    isLeader,
+    canEditScales: can(PERMS.EDIT_SCALES),
+    canEditSongs: can(PERMS.EDIT_SONGS),
+    canEditAnnouncements: can(PERMS.EDIT_ANNOUNCEMENTS),
+  };
 }

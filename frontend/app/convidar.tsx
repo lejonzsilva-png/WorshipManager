@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   View,
   Text,
@@ -12,12 +13,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/src/context/AuthContext";
+import { useAuth, usePermissions } from "@/src/context/AuthContext";
 import { colors, radius, spacing } from "@/src/theme";
 
 export default function Convidar() {
   const router = useRouter();
   const { ministry } = useAuth();
+  const { isLeader } = usePermissions();
+
+  useEffect(() => {
+    if (ministry && !isLeader) {
+      Alert.alert("Acesso restrito", "Apenas líderes podem convidar novos membros.");
+      router.replace("/(tabs)");
+    }
+  }, [isLeader, ministry, router]);
 
   const code = ministry?.invite_code || "";
   const ministryName = ministry?.name || "nosso ministério";

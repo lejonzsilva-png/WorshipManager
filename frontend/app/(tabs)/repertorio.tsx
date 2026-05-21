@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { usePermissions } from "@/src/context/AuthContext";
 import { colors, radius, spacing } from "@/src/theme";
 
 type Song = {
@@ -24,6 +25,7 @@ type Song = {
 
 export default function Repertorio() {
   const router = useRouter();
+  const { canEditSongs } = usePermissions();
   const [songs, setSongs] = useState<Song[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -49,13 +51,15 @@ export default function Repertorio() {
     <SafeAreaView style={styles.container} testID="repertorio-screen" edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Repertório</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => router.push("/musica/nova")}
-          testID="new-song-btn"
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        {canEditSongs ? (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => router.push("/musica/nova")}
+            testID="new-song-btn"
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       <View style={styles.searchWrap}>
@@ -85,7 +89,7 @@ export default function Repertorio() {
               <Text style={styles.emptyText}>
                 {search ? "Nenhuma música encontrada" : "Sem músicas ainda"}
               </Text>
-              {!search && (
+              {!search && canEditSongs && (
                 <TouchableOpacity onPress={() => router.push("/musica/nova")} style={styles.btnPrimary}>
                   <Text style={styles.btnPrimaryText}>Adicionar música</Text>
                 </TouchableOpacity>

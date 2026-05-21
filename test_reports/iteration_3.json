@@ -1,0 +1,42 @@
+{
+  "summary": "Backend-only testing of the new permission system (leader/member roles + edit_scales/edit_songs/edit_announcements). Created /app/backend/tests/test_permissions.py with 24 tests mapping 1:1 to every bullet of the review_request: signup creates leader with all 3 perms via to_public_user, signup-with-invite-code creates member with permissions=[], /auth/me exposes permissions, all forbidden write ops (POST/PUT/DELETE) for members without perms return 403, members granted a single perm succeed on that op only, announcement author can delete own without edit_announcements, non-author without perm gets 403, members (even with all perms) can't PUT /ministry/members/{id} nor rotate api-key (403), leader can promote/demote, set permissions, invalid perm name -> 400, last-leader self-demote -> 400 'precisa de ao menos um líder', self-demote allowed when another leader exists, promoted member exposes all 3 perms via to_public_user. Re-ran existing test_louvorapp_backend.py + test_external_api.py as regression. Result: 24/24 new + 48/48 regression = 72/72 passing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_permissions.py",
+    "/app/test_reports/pytest/test_permissions.xml",
+    "/app/test_reports/pytest/regression.xml"
+  ],
+  "action_items": [
+    "Frontend (out of scope but observed): Metro bundler currently FAILS to bundle app/(tabs)/index.tsx with 'SyntaxError: Unexpected token (339:2)'. A stray '8,' is sitting between StyleSheet objects (lines 337-339). This must be fixed before any frontend can be reached, but does NOT affect backend permission system which is fully functional."
+  ],
+  "critical_code_review_comments": [
+    "to_public_user correctly always returns ALL_PERMS for leaders regardless of stored permissions array (line 185), so promoted members instantly gain full perms - verified.",
+    "PUT /ministry/members/{member_id} correctly scopes the lookup to the caller's ministry_id (line 336), preserving multi-tenant isolation - a leader of ministry A cannot touch a member of ministry B (would 404).",
+    "Last-leader protection at lines 343-349 correctly counts other leaders with $ne member_id, allowing safe self-demote only when another leader exists.",
+    "Suggestion (non-blocking): require_leader/require_perm could be FastAPI Depends-style dependencies (DRY) instead of inline calls inside each endpoint - works either way.",
+    "Suggestion (non-blocking): UpdateMemberReq has no validator for empty body; lines 357-358 already raise 400 'Nada para atualizar' so behavior is correct.",
+    "Suggestion (non-blocking): consider an audit log for role/permission changes; currently no trace of who promoted whom.",
+    "Note: PERM constants and ALL_PERMS set used consistently; validation against ALL_PERMS at line 352 is correct."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_permissions.py (new file)"
+  ],
+  "success_rate": {
+    "backend": "100% (72/72 across permission + regression)",
+    "frontend": "not tested (out of scope - testing_type=backend only)"
+  },
+  "seed_data_creation": "Per-run unique TEST data: 1 leader (TEST Perm Leader {SUFFIX}) creating ministry 'TEST Perm Ministry {SUFFIX}', 2 members (TEST Perm Member / Member2) joining via invite_code. A few TEST songs/scales/announcements are created during the flow. All test data is prefixed with 'TEST_' and uses a per-run uuid suffix; safe to re-run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Permission tests live in /app/backend/tests/test_permissions.py. Module-scoped fixtures `leader`, `member`, `member2` are reused. BASE_URL defaults to https://worship-hub-100.preview.emergentagent.com/api (overridable via env EXTERNAL_API_BASE). All 22 review-request bullets are covered with at least one assertion each (24 tests total). The new endpoint PUT /api/ministry/members/{member_id} accepts {role?, permissions?} and is leader-only.",
+  "rca_of_issue": "N/A - no bugs found in the permission system. Every behavior described in the spec is implemented correctly and verified end-to-end against the public preview URL."
+}

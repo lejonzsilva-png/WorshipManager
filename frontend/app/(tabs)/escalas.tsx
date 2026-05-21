@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { usePermissions } from "@/src/context/AuthContext";
 import { colors, radius, spacing, formatDateBR, formatDayName } from "@/src/theme";
 
 type Scale = {
@@ -26,6 +27,7 @@ type Scale = {
 
 export default function Escalas() {
   const router = useRouter();
+  const { canEditScales } = usePermissions();
   const [scales, setScales] = useState<Scale[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
@@ -48,13 +50,15 @@ export default function Escalas() {
     <SafeAreaView style={styles.container} testID="escalas-screen" edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Escalas</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => router.push("/escala/nova")}
-          testID="new-scale-btn"
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        {canEditScales ? (
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => router.push("/escala/nova")}
+            testID="new-scale-btn"
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       <View style={styles.segment}>
@@ -90,7 +94,7 @@ export default function Escalas() {
               <Text style={styles.emptyText}>
                 {filter === "upcoming" ? "Nenhuma escala futura" : "Sem escalas anteriores"}
               </Text>
-              {filter === "upcoming" && (
+              {filter === "upcoming" && canEditScales && (
                 <TouchableOpacity onPress={() => router.push("/escala/nova")} style={styles.btnPrimary}>
                   <Text style={styles.btnPrimaryText}>Criar escala</Text>
                 </TouchableOpacity>

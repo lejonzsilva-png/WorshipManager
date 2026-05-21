@@ -13,7 +13,7 @@ import bcrypt
 import jwt
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 
 ROOT_DIR = Path(__file__).parent
@@ -58,8 +58,20 @@ class UserPublic(BaseModel):
     role: str  # "leader" | "member"
     ministry_id: str
     instruments: List[str] = []
+    permissions: List[str] = []  # only relevant for members; leader has all
     phone: Optional[str] = None
     avatar_color: str = "#2E412A"
+
+
+PERM_EDIT_SCALES = "edit_scales"
+PERM_EDIT_SONGS = "edit_songs"
+PERM_EDIT_ANNOUNCEMENTS = "edit_announcements"
+ALL_PERMS = {PERM_EDIT_SCALES, PERM_EDIT_SONGS, PERM_EDIT_ANNOUNCEMENTS}
+
+
+class UpdateMemberReq(BaseModel):
+    role: Optional[Literal["leader", "member"]] = None
+    permissions: Optional[List[str]] = None
 
 
 class AuthResp(BaseModel):
@@ -170,9 +182,26 @@ def to_public_user(u: dict) -> UserPublic:
         role=u.get("role", "member"),
         ministry_id=u["ministry_id"],
         instruments=u.get("instruments", []),
+        permissions=u.get("permissions", []) if u.get("role") != "leader" else list(ALL_PERMS),
         phone=u.get("phone"),
         avatar_color=u.get("avatar_color", "#2E412A"),
     )
+
+
+def has_perm(user: dict, perm: str) -> bool:
+    if user.get("role") == "leader":
+        return True
+    return perm in (user.get("permissions") or [])
+
+
+def require_perm(user: dict, perm: str) -> None:
+    if not has_perm(user, perm):
+        raise HTTPException(403, "Sem permissão para esta ação")
+
+
+def require_leader(user: dict) -> None:
+    if user.get("role") != "leader":
+        raise HTTPException(403, "Apenas líderes podem executar esta ação")
 
 
 async def current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme)) -> dict:
@@ -225,6 +254,7 @@ async def signup(req: SignupReq):
         "role": role,
         "ministry_id": ministry_doc["id"],
         "instruments": [],
+        "permissions": [],
         "phone": None,
         "avatar_color": secrets.choice(["#2E412A", "#D96C5B", "#E6B97A", "#4A6E82", "#3E6649"]),
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -298,9 +328,44 @@ async def list_members(user: dict = Depends(current_user)):
     return [to_public_user(m) for m in members]
 
 
+@api.put("/ministry/members/{member_id}", response_model=UserPublic)
+async def update_member(member_id: str, req: UpdateMemberReq, current: dict = Depends(current_user)):
+    """Leader-only: promote/demote a member or set individual permissions."""
+    require_leader(current)
+    target = await db.users.find_one(
+        {"id": member_id, "ministry_id": current["ministry_id"]}, {"_id": 0}
+    )
+    if not target:
+        raise HTTPException(404, "Membro não encontrado")
+
+    update: dict = {}
+    if req.role is not None:
+        # prevent demoting the last remaining leader
+        if req.role == "member" and target.get("role") == "leader":
+            other_leaders = await db.users.count_documents({
+                "ministry_id": current["ministry_id"], "role": "leader", "id": {"$ne": member_id}
+            })
+            if other_leaders == 0:
+                raise HTTPException(400, "O ministério precisa de ao menos um líder")
+        update["role"] = req.role
+    if req.permissions is not None:
+        invalid = [p for p in req.permissions if p not in ALL_PERMS]
+        if invalid:
+            raise HTTPException(400, f"Permissões inválidas: {invalid}")
+        update["permissions"] = req.permissions
+
+    if not update:
+        raise HTTPException(400, "Nada para atualizar")
+
+    await db.users.update_one({"id": member_id}, {"$set": update})
+    updated = await db.users.find_one({"id": member_id}, {"_id": 0, "password_hash": 0})
+    return to_public_user(updated)
+
+
 # ============= Songs =============
 @api.post("/songs", response_model=Song)
 async def create_song(req: SongCreate, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SONGS)
     song = Song(**req.model_dump(), ministry_id=user["ministry_id"])
     doc = song.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
@@ -324,6 +389,7 @@ async def get_song(song_id: str, user: dict = Depends(current_user)):
 
 @api.put("/songs/{song_id}", response_model=Song)
 async def update_song(song_id: str, req: SongCreate, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SONGS)
     res = await db.songs.update_one(
         {"id": song_id, "ministry_id": user["ministry_id"]}, {"$set": req.model_dump()}
     )
@@ -334,6 +400,7 @@ async def update_song(song_id: str, req: SongCreate, user: dict = Depends(curren
 
 @api.delete("/songs/{song_id}")
 async def delete_song(song_id: str, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SONGS)
     res = await db.songs.delete_one({"id": song_id, "ministry_id": user["ministry_id"]})
     if res.deleted_count == 0:
         raise HTTPException(404, "Música não encontrada")
@@ -343,6 +410,7 @@ async def delete_song(song_id: str, user: dict = Depends(current_user)):
 # ============= Scales =============
 @api.post("/scales", response_model=Scale)
 async def create_scale(req: ScaleCreate, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SCALES)
     scale = Scale(**req.model_dump(), ministry_id=user["ministry_id"], created_by=user["id"])
     doc = scale.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
@@ -366,6 +434,7 @@ async def get_scale(scale_id: str, user: dict = Depends(current_user)):
 
 @api.put("/scales/{scale_id}", response_model=Scale)
 async def update_scale(scale_id: str, req: ScaleCreate, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SCALES)
     res = await db.scales.update_one(
         {"id": scale_id, "ministry_id": user["ministry_id"]}, {"$set": req.model_dump()}
     )
@@ -376,6 +445,7 @@ async def update_scale(scale_id: str, req: ScaleCreate, user: dict = Depends(cur
 
 @api.delete("/scales/{scale_id}")
 async def delete_scale(scale_id: str, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_SCALES)
     res = await db.scales.delete_one({"id": scale_id, "ministry_id": user["ministry_id"]})
     if res.deleted_count == 0:
         raise HTTPException(404, "Escala não encontrada")
@@ -385,6 +455,7 @@ async def delete_scale(scale_id: str, user: dict = Depends(current_user)):
 # ============= Announcements =============
 @api.post("/announcements", response_model=Announcement)
 async def create_announcement(req: AnnouncementCreate, user: dict = Depends(current_user)):
+    require_perm(user, PERM_EDIT_ANNOUNCEMENTS)
     a = Announcement(
         **req.model_dump(),
         ministry_id=user["ministry_id"],
@@ -409,9 +480,13 @@ async def list_announcements(user: dict = Depends(current_user)):
 
 @api.delete("/announcements/{ann_id}")
 async def delete_announcement(ann_id: str, user: dict = Depends(current_user)):
-    res = await db.announcements.delete_one({"id": ann_id, "ministry_id": user["ministry_id"]})
-    if res.deleted_count == 0:
+    # Anyone with edit_announcements (or leader) can delete any; otherwise author-only
+    target = await db.announcements.find_one({"id": ann_id, "ministry_id": user["ministry_id"]}, {"_id": 0})
+    if not target:
         raise HTTPException(404, "Aviso não encontrado")
+    if not has_perm(user, PERM_EDIT_ANNOUNCEMENTS) and target.get("author_id") != user["id"]:
+        raise HTTPException(403, "Sem permissão para excluir este aviso")
+    await db.announcements.delete_one({"id": ann_id, "ministry_id": user["ministry_id"]})
     return {"ok": True}
 
 

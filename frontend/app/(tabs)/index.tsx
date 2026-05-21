@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/src/context/AuthContext";
+import { useAuth, usePermissions } from "@/src/context/AuthContext";
 import { api } from "@/src/api/client";
 import { colors, radius, spacing, shadow, formatDateBR, formatDayName } from "@/src/theme";
 
@@ -42,6 +42,7 @@ type Stats = {
 export default function Dashboard() {
   const router = useRouter();
   const { user, ministry } = useAuth();
+  const { isLeader, canEditScales, canEditSongs, canEditAnnouncements } = usePermissions();
   const [stats, setStats] = useState<Stats | null>(null);
   const [nextScale, setNextScale] = useState<Scale | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -330,6 +331,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 8,
+  },
+  emptyText: { fontSize: 14, color: colors.textSecondary },
+  linkBold: { color: colors.olive, fontWeight: "600", fontSize: 13 },
+});
+ 8,
   },
   emptyText: { fontSize: 14, color: colors.textSecondary },
   linkBold: { color: colors.olive, fontWeight: "600", fontSize: 13 },

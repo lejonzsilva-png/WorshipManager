@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
-import { useAuth } from "@/src/context/AuthContext";
+import { useAuth, usePermissions } from "@/src/context/AuthContext";
 import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing } from "@/src/theme";
 
@@ -13,6 +13,7 @@ type Ann = { id: string; title: string; message: string; author_name: string; au
 export default function Avisos() {
   const router = useRouter();
   const { user } = useAuth();
+  const { canEditAnnouncements } = usePermissions();
   const [items, setItems] = useState<Ann[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,7 +39,9 @@ export default function Avisos() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.title}>Avisos</Text>
-        <TouchableOpacity onPress={() => router.push("/aviso/novo")} testID="new-announcement-btn"><Ionicons name="add" size={26} color={colors.olive} /></TouchableOpacity>
+        {canEditAnnouncements ? (
+          <TouchableOpacity onPress={() => router.push("/aviso/novo")} testID="new-announcement-btn"><Ionicons name="add" size={26} color={colors.olive} /></TouchableOpacity>
+        ) : <View style={{ width: 26 }} />}
       </View>
       {loading ? <View style={styles.center}><ActivityIndicator color={colors.olive} /></View> : (
         <FlatList
@@ -55,7 +58,7 @@ export default function Avisos() {
             <View style={styles.item} testID={`ann-${item.id}`}>
               <View style={styles.itemHeader}>
                 <Text style={styles.itemTitle}>{item.title}</Text>
-                {item.author_id === user?.id && (
+                {(item.author_id === user?.id || canEditAnnouncements) && (
                   <TouchableOpacity onPress={() => onDelete(item.id)}><Ionicons name="trash-outline" size={18} color={colors.textDisabled} /></TouchableOpacity>
                 )}
               </View>

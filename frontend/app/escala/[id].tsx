@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { usePermissions } from "@/src/context/AuthContext";
 import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing, formatDateBR, formatDayName } from "@/src/theme";
 
@@ -23,6 +24,7 @@ type Song = { id: string; title: string; artist?: string; key?: string };
 export default function EscalaDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { canEditScales } = usePermissions();
   const [scale, setScale] = useState<Scale | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,12 +74,16 @@ export default function EscalaDetail() {
         <TouchableOpacity onPress={() => router.back()} testID="back-btn"><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.headerTitle}>Detalhes</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push(`/escala/nova?id=${id}`)} testID="edit-scale" style={styles.headerBtn}>
-            <Ionicons name="create-outline" size={22} color={colors.olive} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} testID="delete-scale" style={styles.headerBtn}>
-            <Ionicons name="trash-outline" size={22} color={colors.error} />
-          </TouchableOpacity>
+          {canEditScales && (
+            <TouchableOpacity onPress={() => router.push(`/escala/nova?id=${id}`)} testID="edit-scale" style={styles.headerBtn}>
+              <Ionicons name="create-outline" size={22} color={colors.olive} />
+            </TouchableOpacity>
+          )}
+          {canEditScales && (
+            <TouchableOpacity onPress={onDelete} testID="delete-scale" style={styles.headerBtn}>
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

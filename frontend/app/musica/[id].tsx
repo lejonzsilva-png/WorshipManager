@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { usePermissions } from "@/src/context/AuthContext";
 import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing } from "@/src/theme";
 
@@ -21,6 +22,7 @@ type Song = {
 export default function MusicaDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { canEditSongs } = usePermissions();
   const [song, setSong] = useState<Song | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,9 @@ export default function MusicaDetail() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.headerTitle}>Música</Text>
-        <TouchableOpacity onPress={onDelete} testID="delete-song"><Ionicons name="trash-outline" size={22} color={colors.error} /></TouchableOpacity>
+        {canEditSongs ? (
+          <TouchableOpacity onPress={onDelete} testID="delete-song"><Ionicons name="trash-outline" size={22} color={colors.error} /></TouchableOpacity>
+        ) : <View style={{ width: 22 }} />}
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroCard}>
