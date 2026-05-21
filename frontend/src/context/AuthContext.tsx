@@ -16,6 +16,7 @@ export type Ministry = {
   id: string;
   name: string;
   invite_code: string;
+  api_key: string;
   created_by: string;
 };
 

@@ -22,6 +22,7 @@ export default function RootLayout() {
             <Stack.Screen name="membros" />
             <Stack.Screen name="avisos" />
             <Stack.Screen name="aviso/novo" options={{ presentation: "modal" }} />
+            <Stack.Screen name="api-docs" />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>

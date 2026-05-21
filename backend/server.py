@@ -1,5 +1,5 @@
 """LouvorApp - Worship Ministry Management API."""
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -72,6 +72,7 @@ class Ministry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     invite_code: str
+    api_key: str = Field(default_factory=lambda: "lvr_" + secrets.token_urlsafe(32))
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -155,6 +156,10 @@ def create_token(user_id: str) -> str:
 
 def gen_invite_code() -> str:
     return "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+
+
+def gen_api_key() -> str:
+    return "lvr_" + secrets.token_urlsafe(32)
 
 
 def to_public_user(u: dict) -> UserPublic:
@@ -266,9 +271,25 @@ async def update_me(req: UpdateProfileReq, user: dict = Depends(current_user)):
 @api.get("/ministry")
 async def get_ministry(user: dict = Depends(current_user)):
     ministry = await db.ministries.find_one({"id": user["ministry_id"]}, {"_id": 0})
-    if ministry and isinstance(ministry.get("created_at"), datetime):
+    if not ministry:
+        return {}
+    # Backfill api_key for ministries created before this feature
+    if not ministry.get("api_key"):
+        new_key = gen_api_key()
+        await db.ministries.update_one({"id": user["ministry_id"]}, {"$set": {"api_key": new_key}})
+        ministry["api_key"] = new_key
+    if isinstance(ministry.get("created_at"), datetime):
         ministry["created_at"] = ministry["created_at"].isoformat()
-    return ministry or {}
+    return ministry
+
+
+@api.post("/ministry/api-key/rotate")
+async def rotate_api_key(user: dict = Depends(current_user)):
+    if user.get("role") != "leader":
+        raise HTTPException(403, "Apenas o líder pode rotacionar a chave de API")
+    new_key = gen_api_key()
+    await db.ministries.update_one({"id": user["ministry_id"]}, {"$set": {"api_key": new_key}})
+    return {"api_key": new_key}
 
 
 @api.get("/ministry/members", response_model=List[UserPublic])
@@ -408,6 +429,124 @@ async def stats(user: dict = Depends(current_user)):
 
 
 app.include_router(api)
+
+
+# ============= External API (for metronome/other apps) =============
+ext = APIRouter(prefix="/api/external", tags=["external"])
+
+
+async def ministry_from_key(x_api_key: Optional[str] = Header(None, alias="X-API-Key")) -> dict:
+    if not x_api_key:
+        raise HTTPException(401, "Missing X-API-Key header")
+    m = await db.ministries.find_one({"api_key": x_api_key}, {"_id": 0})
+    if not m:
+        raise HTTPException(401, "Invalid API key")
+    return m
+
+
+def _song_external(s: dict) -> dict:
+    return {
+        "id": s["id"],
+        "title": s["title"],
+        "artist": s.get("artist") or "",
+        "key": s.get("key") or "",
+        "bpm": s.get("bpm"),
+        "youtube_url": s.get("youtube_url") or "",
+        "cifra_url": s.get("cifra_url") or "",
+        "tags": s.get("tags") or [],
+    }
+
+
+@ext.get("/ministry")
+async def ext_ministry(m: dict = Depends(ministry_from_key)):
+    return {"id": m["id"], "name": m["name"]}
+
+
+@ext.get("/songs")
+async def ext_songs(m: dict = Depends(ministry_from_key)):
+    """Lista completa de músicas do ministério (com BPM e tom)."""
+    songs = (
+        await db.songs.find({"ministry_id": m["id"]}, {"_id": 0})
+        .sort("title", 1)
+        .to_list(2000)
+    )
+    return {"ministry_id": m["id"], "count": len(songs), "songs": [_song_external(s) for s in songs]}
+
+
+@ext.get("/scales")
+async def ext_scales(
+    upcoming: bool = True,
+    limit: int = 50,
+    m: dict = Depends(ministry_from_key),
+):
+    """Lista escalas (eventos) com músicas e BPM já embutidos — pronto para sync de metrônomo.
+
+    Query params:
+    - upcoming=true (padrão): retorna apenas escalas a partir de hoje
+    - limit=50 (max 200)
+    """
+    limit = max(1, min(limit, 200))
+    query: dict = {"ministry_id": m["id"]}
+    if upcoming:
+        today = datetime.now(timezone.utc).date().isoformat()
+        query["date"] = {"$gte": today}
+    scales = await db.scales.find(query, {"_id": 0}).sort("date", 1).to_list(limit)
+
+    # Hydrate songs
+    all_song_ids: set = set()
+    for s in scales:
+        for sid in s.get("song_ids", []):
+            all_song_ids.add(sid)
+    song_map: dict = {}
+    if all_song_ids:
+        docs = await db.songs.find(
+            {"ministry_id": m["id"], "id": {"$in": list(all_song_ids)}}, {"_id": 0}
+        ).to_list(len(all_song_ids))
+        song_map = {d["id"]: _song_external(d) for d in docs}
+
+    result = []
+    for s in scales:
+        result.append({
+            "id": s["id"],
+            "title": s["title"],
+            "date": s["date"],
+            "time": s.get("time") or "",
+            "location": s.get("location") or "",
+            "notes": s.get("notes") or "",
+            "songs": [song_map[sid] for sid in s.get("song_ids", []) if sid in song_map],
+            "musicians": s.get("assignments", []),
+        })
+    return {"ministry_id": m["id"], "count": len(result), "scales": result}
+
+
+@ext.get("/scales/{scale_id}")
+async def ext_scale_detail(scale_id: str, m: dict = Depends(ministry_from_key)):
+    """Detalhe de uma escala específica com setlist completo e BPM por música."""
+    s = await db.scales.find_one({"id": scale_id, "ministry_id": m["id"]}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Scale not found")
+    songs = []
+    if s.get("song_ids"):
+        docs = await db.songs.find(
+            {"ministry_id": m["id"], "id": {"$in": s["song_ids"]}}, {"_id": 0}
+        ).to_list(len(s["song_ids"]))
+        by_id = {d["id"]: d for d in docs}
+        # preserve original order
+        songs = [_song_external(by_id[sid]) for sid in s["song_ids"] if sid in by_id]
+    return {
+        "id": s["id"],
+        "title": s["title"],
+        "date": s["date"],
+        "time": s.get("time") or "",
+        "location": s.get("location") or "",
+        "notes": s.get("notes") or "",
+        "songs": songs,
+        "musicians": s.get("assignments", []),
+    }
+
+
+app.include_router(ext)
+
 
 app.add_middleware(
     CORSMiddleware,

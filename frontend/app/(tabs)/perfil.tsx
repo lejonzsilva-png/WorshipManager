@@ -61,6 +61,34 @@ export default function Perfil() {
     }
   };
 
+  const copyApiKey = async () => {
+    if (ministry?.api_key) {
+      await Clipboard.setStringAsync(ministry.api_key);
+      Alert.alert("Copiado!", "Chave de API copiada para a área de transferência");
+    }
+  };
+
+  const rotateApiKey = () => {
+    Alert.alert(
+      "Rotacionar chave?",
+      "A chave atual será invalidada imediatamente. Apps externos terão que ser reconfigurados.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Rotacionar", style: "destructive", onPress: async () => {
+            try {
+              await api("/ministry/api-key/rotate", { method: "POST" });
+              await refresh();
+              Alert.alert("Sucesso", "Nova chave gerada");
+            } catch (e: any) {
+              Alert.alert("Erro", e.message || "Falha ao rotacionar");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const onLogout = () => {
     Alert.alert("Sair", "Deseja realmente sair?", [
       { text: "Cancelar", style: "cancel" },
@@ -122,6 +150,46 @@ export default function Perfil() {
             <Ionicons name="copy-outline" size={22} color={colors.olive} />
           </TouchableOpacity>
         </View>
+
+        {user.role === "leader" && ministry?.api_key ? (
+          <View style={styles.card}>
+            <View style={styles.apiHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>INTEGRAÇÃO / API</Text>
+                <Text style={styles.apiHelp}>
+                  Use esta chave para conectar apps externos (ex: metrônomo) ao seu ministério.
+                </Text>
+              </View>
+              <Ionicons name="code-slash" size={22} color={colors.info} />
+            </View>
+
+            <TouchableOpacity style={styles.apiKeyBox} onPress={copyApiKey} testID="copy-api-key">
+              <Text style={styles.apiKeyText} numberOfLines={1} ellipsizeMode="middle">
+                {ministry.api_key}
+              </Text>
+              <Ionicons name="copy-outline" size={18} color={colors.olive} />
+            </TouchableOpacity>
+
+            <View style={styles.apiActions}>
+              <TouchableOpacity
+                style={styles.apiBtn}
+                onPress={() => router.push("/api-docs")}
+                testID="api-docs-btn"
+              >
+                <Ionicons name="book-outline" size={16} color={colors.olive} />
+                <Text style={styles.apiBtnText}>Ver documentação</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.apiBtn, styles.apiBtnDanger]}
+                onPress={rotateApiKey}
+                testID="rotate-api-key"
+              >
+                <Ionicons name="refresh" size={16} color={colors.error} />
+                <Text style={[styles.apiBtnText, { color: colors.error }]}>Rotacionar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         {editing ? (
           <>
@@ -230,6 +298,23 @@ const styles = StyleSheet.create({
   },
   inviteLabel: { fontSize: 10, color: colors.textSecondary, letterSpacing: 1, fontWeight: "600" },
   inviteCode: { fontSize: 22, fontWeight: "700", color: colors.olive, letterSpacing: 4, marginTop: 2 },
+  apiHeader: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 12 },
+  apiHelp: { fontSize: 12, color: colors.textSecondary, marginTop: 4, lineHeight: 17 },
+  apiKeyBox: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: colors.surfaceElevated,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderRadius: radius.md,
+  },
+  apiKeyText: { flex: 1, fontFamily: "monospace", fontSize: 12, color: colors.text },
+  apiActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  apiBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    paddingVertical: 10, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  apiBtnDanger: { borderColor: colors.error },
+  apiBtnText: { color: colors.olive, fontSize: 12, fontWeight: "600" },
   label: { fontSize: 12, color: colors.textSecondary, marginTop: 8, marginBottom: 4 },
   input: {
     backgroundColor: colors.bg,

@@ -1,0 +1,38 @@
+{
+  "summary": "Backend-only testing of new External API (X-API-Key) + api-key rotation feature. Created comprehensive pytest suite /app/backend/tests/test_external_api.py with 22 tests covering: api_key field in GET /ministry (with backfill), POST /ministry/api-key/rotate (leader-only / 401 / 403 / old-key invalidation), GET /api/external/ministry|songs|scales|scales/{id} including hydrated setlist order, BPM presence, upcoming filter, limit param, cross-ministry 404, and full multi-tenant isolation between two newly created ministries. Also re-ran existing /app/backend/tests/test_louvorapp_backend.py for regression. Result: 22/22 new + 26/26 regression = 48/48 passing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_external_api.py",
+    "/app/backend/tests/test_louvorapp_backend.py",
+    "/app/test_reports/pytest/test_external_api.xml",
+    "/app/test_reports/pytest/test_louvorapp_backend.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: /api/external/scales accepts limit beyond expectation but server clamps to [1,200] correctly. Good defensive coding.",
+    "Minor: ext_scale_detail uses {'$in': s['song_ids']} where song_ids could be empty list; this is guarded by 'if s.get(\"song_ids\")' check. OK.",
+    "Suggestion (non-blocking): consider rate-limiting /api/external/* endpoints (e.g., slowapi) to prevent abuse of public API keys.",
+    "Suggestion (non-blocking): rotate endpoint returns only {api_key} - consider also returning rotated_at timestamp for audit purposes."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_external_api.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (48/48 across both test files)",
+    "frontend": "not tested (out of scope - testing_type=backend only)"
+  },
+  "seed_data_creation": "Each pytest module run creates 2 fresh leaders (TEST Leader A/B), 1 member under A, ~6 songs and 3 scales (1 past + 2 future) under B, plus a handful of regression songs/announcements. All data is prefixed with 'TEST' and uses a per-run uuid suffix for traceability. No cleanup performed (idempotent — safe to re-run).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "External API tests live in /app/backend/tests/test_external_api.py. They are self-contained: signup two leaders, fetch api_key via GET /ministry, then exercise X-API-Key. Reuse module-scoped fixtures `leader_a`, `leader_b`, `member_a`. BASE_URL defaults to the public preview URL but can be overridden with env var EXTERNAL_API_BASE. All requirements from the review_request have a dedicated test: 1:1 mapping confirmed.",
+  "rca_of_issue": "N/A - no bugs found. All 17 review-request feature points verified passing: api_key in GET /ministry + backfill, rotate leader=200/member=403/no-token=401, old key invalidated, external/ministry missing-header=401 & invalid=401 & valid=200, external/songs returns {ministry_id,count,songs[]} with title/key/bpm/youtube_url, scales upcoming=true only future, upcoming=false all, hydrated songs with BPM in song_ids order, limit param respected, scales/{id} 404 cross-ministry, full A/B isolation, regression of auth/songs/scales/announcements/stats."
+}
