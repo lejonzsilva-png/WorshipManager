@@ -28,7 +28,15 @@ App mobile (Expo / React Native) inspirado no Louveapp para gerenciamento comple
 ## Próximos passos sugeridos
 - Login social Google (Emergent-managed)
 - Push notifications para escalas/avisos
-- Convite por link compartilhável
-- Disponibilidade dos membros (quem está disponível em data X)
-- Export PDF da escala
+- Rate limiting nos endpoints `/api/external/*`
 - Modo escuro
+
+## API Externa (para apps de metrônomo)
+Cada ministério tem um `api_key` único (formato `lvr_<base64url>`) gerado no signup.
+Líder pode rotacionar via `POST /api/ministry/api-key/rotate`.
+Endpoints públicos (header `X-API-Key`):
+- `GET /api/external/ministry`
+- `GET /api/external/songs` — repertório completo com BPM, tom, links
+- `GET /api/external/scales?upcoming=true&limit=50` — escalas com setlist HIDRATADO (cada música já vem com BPM, em ordem de execução)
+- `GET /api/external/scales/{scale_id}` — detalhe de uma escala
+Documentação in-app: `app/api-docs.tsx` (visível só para líder, com exemplos curl/JS).
