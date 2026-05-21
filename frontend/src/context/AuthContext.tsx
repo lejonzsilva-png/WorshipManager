@@ -103,22 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invite_code?: string;
   }) => {
     try {
-      console.log("A enviar registo para o servidor...");
       const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
         method: "POST",
         body: data,
         auth: false,
       });
-      
-      console.log("Resposta recebida do servidor:", res); // <-- VÊ ISTO NO TERMINAL!
-
       await setToken(res.token);
       setUser(res.user);
       setMinistry(res.ministry);
-      
-      console.log("Estado atualizado com sucesso!");
     } catch (error: any) {
-      console.error("ERRO DETETADO NO FRONTEND:", error);
       Alert.alert("Erro no Registo", error.message || "Não foi possível criar a conta.");
       throw error;
     }
@@ -169,4 +162,20 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+export function usePermissions() {
+  const { user } = useAuth();
+  
+  const isLeader = user?.role === "leader";
+  const canEditScales = isLeader || user?.permissions.includes(PERMS.EDIT_SCALES) || false;
+  const canEditSongs = isLeader || user?.permissions.includes(PERMS.EDIT_SONGS) || false;
+  const canEditAnnouncements = isLeader || user?.permissions.includes(PERMS.EDIT_ANNOUNCEMENTS) || false;
+
+  return {
+    isLeader,
+    canEditScales,
+    canEditSongs,
+    canEditAnnouncements,
+  };
 }
