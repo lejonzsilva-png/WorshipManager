@@ -71,11 +71,20 @@ async def login(credentials: LoginSchema):
             "user": {
                 "id": "user-123",
                 "email": credentials.email,
-                "name": "Utilizador"
+                "name": "Utilizador",
+                "role": "member",  # ✅ ADICIONADO
+                "ministry_id": "ministry-123",  # ✅ ADICIONADO
+                "instruments": [],  # ✅ ADICIONADO
+                "permissions": [],  # ✅ ADICIONADO
+                "phone": None,  # ✅ ADICIONADO
+                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
             },
             "ministry": {
                 "id": "ministry-123",
-                "name": "Ministério Exemplo"
+                "name": "Ministério Exemplo",
+                "invite_code": "ABC123",  # ✅ ADICIONADO
+                "api_key": "key-123",  # ✅ ADICIONADO
+                "created_by": "user-123"  # ✅ ADICIONADO
             }
         }
     except Exception as e:
@@ -97,11 +106,20 @@ async def signup(data: SignupSchema):
             "user": {
                 "id": "user-123",
                 "email": data.email,
-                "name": data.name
+                "name": data.name,
+                "role": "member",  # ✅ ADICIONADO
+                "ministry_id": "ministry-123",  # ✅ ADICIONADO
+                "instruments": [],  # ✅ ADICIONADO
+                "permissions": [],  # ✅ ADICIONADO
+                "phone": None,  # ✅ ADICIONADO
+                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
             },
             "ministry": {
                 "id": "ministry-123",
-                "name": data.ministry_name or "Minha Ministério"
+                "name": data.ministry_name or "Minha Ministério",
+                "invite_code": data.invite_code or "ABC123",  # ✅ ADICIONADO
+                "api_key": "key-123",  # ✅ ADICIONADO
+                "created_by": "user-123"  # ✅ ADICIONADO
             }
         }
     except Exception as e:
@@ -127,11 +145,20 @@ async def auth_google(data: GoogleAuthSchema):
             "user": {
                 "id": "user-123",
                 "email": "user@gmail.com",
-                "name": "Utilizador Google"
+                "name": "Utilizador Google",
+                "role": "member",  # ✅ ADICIONADO
+                "ministry_id": "ministry-123",  # ✅ ADICIONADO
+                "instruments": [],  # ✅ ADICIONADO
+                "permissions": [],  # ✅ ADICIONADO
+                "phone": None,  # ✅ ADICIONADO
+                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
             },
             "ministry": {
                 "id": "ministry-123",
-                "name": "Ministério Google"
+                "name": "Ministério Google",
+                "invite_code": "ABC123",  # ✅ ADICIONADO
+                "api_key": "key-123",  # ✅ ADICIONADO
+                "created_by": "user-123"  # ✅ ADICIONADO
             }
         }
     except HTTPException:
@@ -153,6 +180,7 @@ async def get_me():
         "ministry_id": "ministry-123",
         "instruments": [],
         "permissions": [],
+        "phone": None,
         "avatar_color": "#FF6B6B"
     }
 
