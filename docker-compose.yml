@@ -1,0 +1,44 @@
+# LouvorApp - Local dev / production stack
+# Usage:
+#   docker compose up -d --build       # start
+#   docker compose logs -f backend     # tail logs
+#   docker compose down                # stop & remove
+#
+# After starting, the API is available at http://localhost:8001/api
+# Run the frontend separately with:  cd frontend && yarn expo start
+
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: louvor-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: louvor-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: louvorapp
+      JWT_SECRET: ${JWT_SECRET:-please-change-me-in-production}
+    ports:
+      - "8001:8001"
+
+volumes:
+  mongo_data:
