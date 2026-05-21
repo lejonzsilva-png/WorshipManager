@@ -1,0 +1,151 @@
+{
+  "theme_archetype": "Archetype 1: Organic & Earthy, Light Theme",
+  "app_type": "React Native Expo Mobile App (hybrid_fullstack, expo-router)",
+  "language": "pt-BR",
+  "target_audience": "Worship leaders, musicians, and church members managing schedules, repertoire, and communication.",
+  "core_vibe": "Warm, welcoming, organized, peaceful, and professional.",
+  "design_principles": {
+    "fusion_over_imitation": "Mix modern SaaS utility with warm, editorial-style church bulletins. Data should feel like an invitation, not a spreadsheet.",
+    "emotion_first": "The UI should reduce anxiety for volunteers. Use calming colors and soft spacing.",
+    "zoom_in": "Highlight the most immediate action (e.g., 'Sua próxima escala' - Your next scheduled service) largely and clearly.",
+    "negative_space": "Use excessive padding (p-6, p-8) to let dense information (songs, keys, scales) breathe.",
+    "contrast": "Deep olive typography against warm off-white backgrounds ensures high readability while staying soft."
+  },
+  "color_palette": {
+    "mode": "light",
+    "background": {
+      "app_base": "#FDFBF7",
+      "surface_card": "#FFFFFF",
+      "surface_elevated": "#F4F1E8",
+      "abstract_texture_overlay": "rgba(244, 241, 232, 0.5)"
+    },
+    "text": {
+      "primary": "#1A2118",
+      "secondary": "#5C6658",
+      "disabled": "#A1A89D",
+      "inverse": "#FFFFFF"
+    },
+    "brand_accent": {
+      "primary_olive": "#2E412A",
+      "primary_hover": "#21301E",
+      "secondary_terracotta": "#D96C5B",
+      "terracotta_hover": "#C25D4E",
+      "soft_gold": "#E6B97A"
+    },
+    "status": {
+      "success": "#3E6649",
+      "warning": "#C78D32",
+      "error": "#B24040",
+      "info": "#4A6E82"
+    },
+    "borders": {
+      "subtle": "#EBE8DF",
+      "focus": "#2E412A"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "headings": "Outfit, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace (for music chords/cifras only)"
+    },
+    "hierarchy": {
+      "h1_hero": "text-4xl font-semibold tracking-tight leading-tight",
+      "h2_section": "text-2xl font-medium tracking-tight",
+      "h3_card": "text-xl font-medium",
+      "body_large": "text-lg leading-relaxed",
+      "body_base": "text-base leading-relaxed",
+      "caption": "text-sm tracking-wide text-secondary uppercase",
+      "chords": "text-base font-mono font-bold text-primary_olive"
+    }
+  },
+  "layout_and_spacing": {
+    "container_padding": "px-6 py-8",
+    "border_radius": {
+      "cards": "rounded-3xl",
+      "buttons": "rounded-full",
+      "inputs": "rounded-2xl"
+    },
+    "card_style": "bg-white rounded-3xl border border-[#EBE8DF] shadow-[0_8px_24px_rgba(46,65,42,0.04)]",
+    "bottom_nav": "bg-white/90 backdrop-blur-xl border-t border-[#EBE8DF] pb-safe pt-3 px-6 rounded-t-3xl shadow-[0_-4px_24px_rgba(0,0,0,0.03)]",
+    "spacing_scale": "Use NativeWind/Tailwind spacing: gap-4 for lists, gap-8 between sections."
+  },
+  "media_urls": {
+    "login_hero_bg": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/70d88dd2-4187-48d2-aa02-3291c5b28e8e/images/93d8a138dfbe4522f0f3053f62821b8f9ea6408862b1e5e294ad0cb72e9168c7.png",
+      "description": "Cinematic warm photograph of an acoustic guitar on a church stage. Use for the login/signup screen background with a dark gradient overlay.",
+      "overlay": "bg-black/40"
+    },
+    "abstract_peaceful_bg": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/70d88dd2-4187-48d2-aa02-3291c5b28e8e/images/cb31b203071760ed7dcedb93e68c41352fb5319937af831b75e4cbb04e7fe9ba.png",
+      "description": "Soft off-white and gold gradient. Use for empty states, profile headers, or as a subtle background behind the main dashboard.",
+      "overlay": "bg-white/80"
+    },
+    "worship_team_1": {
+      "url": "https://images.unsplash.com/photo-1563902315187-8b18cd02b5ba?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwzfHxhY291c3RpYyUyMGd1aXRhciUyMHdvcnNoaXB8ZW58MHx8fHwxNzc5MzcwMTU5fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Woman playing guitar. Good for a community post or ministry group banner."
+    },
+    "worship_team_2": {
+      "url": "https://images.pexels.com/photos/4065021/pexels-photo-4065021.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Outdoor serene scene with a guitar and bible. Good for devotionals or retreat announcements."
+    }
+  },
+  "component_guidelines": {
+    "buttons": {
+      "primary": "bg-primary_olive text-white rounded-full px-6 py-4 font-medium flex items-center justify-center active:scale-95 transition-transform",
+      "secondary": "bg-surface_elevated text-primary_olive rounded-full px-6 py-4 font-medium flex items-center justify-center border border-subtle",
+      "ghost": "text-primary_olive px-4 py-2 font-medium"
+    },
+    "inputs": {
+      "text": "bg-white border border-[#EBE8DF] rounded-2xl px-4 py-4 text-primary text-base placeholder:text-disabled focus:border-primary_olive focus:ring-1 focus:ring-primary_olive"
+    },
+    "lists": {
+      "scale_item": "flex flex-row items-center p-4 bg-white rounded-2xl border border-subtle mb-3",
+      "repertoire_item": "flex flex-row justify-between items-center p-4 border-b border-subtle last:border-0"
+    },
+    "tabs": {
+      "segmented_control": "bg-surface_elevated p-1 rounded-full flex flex-row",
+      "tab_active": "bg-white rounded-full shadow-sm py-2 px-4 flex-1 items-center justify-center",
+      "tab_inactive": "py-2 px-4 flex-1 items-center justify-center text-secondary"
+    },
+    "icons": {
+      "library": "lucide-react-native",
+      "stroke_width": "1.5 or 2 based on emphasis",
+      "color": "primary_olive or secondary"
+    }
+  },
+  "testing_requirements": {
+    "data_testid_rule": "All interactive and key informational elements MUST include a data-testid attribute.",
+    "convention": "kebab-case, role-based. E.g., data-testid='login-button', data-testid='scale-item-12', data-testid='nav-repertoire'"
+  },
+  "screens_and_navigation": {
+    "bottom_tabs": [
+      { "name": "Início (Dashboard)", "icon": "Home", "route": "/(tabs)/index" },
+      { "name": "Escalas", "icon": "Calendar", "route": "/(tabs)/escalas" },
+      { "name": "Repertório", "icon": "Music", "route": "/(tabs)/repertorio" },
+      { "name": "Perfil", "icon": "User", "route": "/(tabs)/perfil" }
+    ],
+    "dashboard_layout": {
+      "header": "Greeting (Olá, [Name]), Profile Avatar, Notification Bell",
+      "hero_card": "Next Scale (Próxima Escala) - Prominent card with date, time, and role. CTA: 'Ver detalhes'",
+      "quick_actions": "Row of icons: Add Song, New Scale, Announcements",
+      "recent_announcements": "Horizontal scroll or vertical list of recent feed items."
+    },
+    "scales_layout": {
+      "view": "Month/Week toggle. List of upcoming services.",
+      "card_details": "Date, Time, Event Name. List of assigned musicians with micro-avatars."
+    },
+    "repertoire_layout": {
+      "search": "Prominent search bar with filter by Key (Tom) or BPM.",
+      "list": "Song Title, Artist, Key badge. Tap to open Lyrics/Chords (Cifra) view with monospace font."
+    }
+  },
+  "instructions_to_main_agent": [
+    "This is an Expo React Native application using expo-router. Use NativeWind for Tailwind styling. Do NOT use Shadcn/UI for React DOM, you must use React Native compatible components.",
+    "Implement language strictly in pt-BR.",
+    "Always apply the generous spacing rules (e.g., p-6) to avoid cluttered mobile views.",
+    "Ensure the music repertoire section uses JetBrains Mono or a system monospace font for rendering 'cifras' (chords) correctly above lyrics.",
+    "Apply `data-testid` properties to every Pressable, TouchableOpacity, TextInput, and significant View for testing.",
+    "Use the provided media URLs for the login background and placeholder images."
+  ]
+}
