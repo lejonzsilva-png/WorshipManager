@@ -1,6 +1,7 @@
 import { storage } from "@/src/utils/storage";
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "";
+// Substitui o URL abaixo pelo endereço real do teu Web Service no Render
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://worshipmanager.onrender.com";
 const TOKEN_KEY = "louvor_token";
 
 export async function getToken(): Promise<string | null> {
@@ -30,13 +31,17 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
     const token = await getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
+  
+  // Agora o fetch aponta corretamente para o servidor na cloud
   const res = await fetch(`${BASE_URL}/api${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+  
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
+  
   if (!res.ok) {
     const msg = data?.detail || data?.message || "Erro de conexão";
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
