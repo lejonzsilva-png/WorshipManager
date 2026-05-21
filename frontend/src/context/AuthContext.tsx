@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { Alert } from "react-native";
 import { api, setToken, clearToken, getToken } from "@/src/api/client";
 import { registerExpoPushToken } from "@/src/utils/notifications";
 
@@ -40,6 +41,7 @@ type AuthCtx = {
     ministry_name?: string;
     invite_code?: string;
   }) => Promise<void>;
+  signInWithGoogle: (token?: string, session_id?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -58,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      // CORREÇÃO: Alinhado com o prefixo /api definido no server.py
       const me = await api<User>("/auth/me");
       const min = await api<Ministry>("/ministry");
       setUser(me);
@@ -78,16 +79,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // CORREÇÃO: O client.ts adiciona /api, logo enviamos /login
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/login", {
-      method: "POST",
-      body: { email, password },
-      auth: false,
-    });
-    await setToken(res.token);
-    setUser(res.user);
-    setMinistry(res.ministry);
-    registerExpoPushToken().catch(() => {});
+    try {
+      const res = await api<{ token: string; user: User; ministry: Ministry }>("/login", {
+        method: "POST",
+        body: { email, password },
+        auth: false,
+      });
+      await setToken(res.token);
+      setUser(res.user);
+      setMinistry(res.ministry);
+      registerExpoPushToken().catch(() => {});
+    } catch (error: any) {
+      Alert.alert("Erro no Login", error.message || "Verifique as suas credenciais.");
+      throw error;
+    }
   };
 
   const signUp = async (data: {
@@ -97,15 +102,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ministry_name?: string;
     invite_code?: string;
   }) => {
-    // CORREÇÃO: Enviamos /signup para resultar em /api/signup no backend
-    const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
-      method: "POST",
-      body: data,
-      auth: false,
-    });
-    await setToken(res.token);
-    setUser(res.user);
-    setMinistry(res.ministry);
+    try {
+      const res = await api<{ token: string; user: User; ministry: Ministry }>("/signup", {
+        method: "POST",
+        body: data,
+        auth: false,
+      });
+      await setToken(res.token);
+      setUser(res.user);
+      setMinistry(res.ministry);
+    } catch (error: any) {
+      Alert.alert("Erro no Registo", error.message || "Não foi possível criar a conta.");
+      throw error;
+    }
+  };
+
+  const signInWithGoogle = async (token?: string, session_id?: string) => {
+    try {
+      const res = await api<{ token: string; user: User; ministry: Ministry }>("/auth/google", {
+        method: "POST",
+        body: { token, session_id },
+        auth: false,
+      });
+      await setToken(res.token);
+      setUser(res.user);
+      setMinistry(res.ministry);
+      registerExpoPushToken().catch(() => {});
+    } catch (error: any) {
+      Alert.alert("Erro no Google", error.message || "Falha ao autenticar com Google.");
+      throw error;
+    }
   };
 
   const signOut = async () => {
@@ -115,14 +141,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refresh = async () => {
-    const me = await api<User>("/auth/me");
-    const min = await api<Ministry>("/ministry");
-    setUser(me);
-    setMinistry(min);
+    try {
+      const me = await api<User>("/auth/me");
+      const min = await api<Ministry>("/ministry");
+      setUser(me);
+      setMinistry(min);
+    } catch (error: any) {
+      console.error("Erro ao atualizar sessão", error);
+    }
   };
 
   return (
-    <Ctx.Provider value={{ user, ministry, loading, signIn, signUp, signOut, refresh }}>
+    <Ctx.Provider value={{ user, ministry, loading, signIn, signUp, signInWithGoogle, signOut, refresh }}>
       {children}
     </Ctx.Provider>
   );
