@@ -4,7 +4,7 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = "https://worship-hub-100.preview.emergentagent.com/api"
+BASE_URL = "https://escala-louvor.preview.emergentagent.com/api"
 
 # Unique suffix for test isolation
 SUFFIX = uuid.uuid4().hex[:8]

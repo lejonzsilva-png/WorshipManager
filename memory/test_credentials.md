@@ -12,6 +12,6 @@
 4. Invite codes are 6-character uppercase alphanumeric (visible on Perfil tab for the leader).
 
 ## Endpoints
-- Backend base: `https://worship-hub-100.preview.emergentagent.com/api`
+- Backend base: `https://escala-louvor.preview.emergentagent.com/api`
 - Public: `POST /auth/signup`, `POST /auth/login`
 - Auth required: `GET /auth/me`, `PUT /auth/me`, `GET /ministry`, `GET /ministry/members`, all `/songs`, `/scales`, `/announcements`, `/stats`

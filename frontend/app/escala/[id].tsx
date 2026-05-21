@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
 import { usePermissions } from "@/src/context/AuthContext";
 import { confirm } from "@/src/utils/confirm";
+import { scaleToText, shareScaleText, shareScalePDF } from "@/src/utils/share";
+import { scheduleScaleReminder } from "@/src/utils/notifications";
 import { colors, radius, spacing, formatDateBR, formatDayName } from "@/src/theme";
 
 type Scale = {
@@ -19,7 +21,7 @@ type Scale = {
   song_ids: string[];
 };
 
-type Song = { id: string; title: string; artist?: string; key?: string };
+type Song = { id: string; title: string; artist?: string; key?: string; bpm?: number | null };
 
 export default function EscalaDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -61,6 +63,25 @@ export default function EscalaDetail() {
         router.back();
       },
     });
+  };
+
+  const onShareText = async () => {
+    if (!scale) return;
+    const text = scaleToText(scale, songs);
+    try { await shareScaleText(text, scale.title); } catch (e: any) { alert(e?.message || "Falha ao compartilhar"); }
+  };
+
+  const onSharePDF = async () => {
+    if (!scale) return;
+    try { await shareScalePDF(scale.id, scale.title); } catch (e: any) { alert(e?.message || "Falha ao gerar PDF"); }
+  };
+
+  const onScheduleReminder = async () => {
+    if (!scale) return;
+    if (Platform.OS === "web") { alert("Lembretes locais s\u00f3 funcionam no app mobile."); return; }
+    const id = await scheduleScaleReminder(scale);
+    if (id) alert("Lembrete agendado para 1 dia antes!");
+    else alert("N\u00e3o foi poss\u00edvel agendar (verifique permiss\u00f5es).");
   };
 
   if (loading) {
@@ -109,6 +130,21 @@ export default function EscalaDetail() {
             <Text style={styles.notes}>{scale.notes}</Text>
           </View>
         ) : null}
+
+        <View style={styles.shareRow}>
+          <TouchableOpacity style={styles.shareBtn} onPress={onShareText} testID="share-text-btn">
+            <Ionicons name="logo-whatsapp" size={18} color={colors.success} />
+            <Text style={styles.shareTextLbl}>Compartilhar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.shareBtn} onPress={onSharePDF} testID="share-pdf-btn">
+            <Ionicons name="document-text-outline" size={18} color={colors.info} />
+            <Text style={styles.shareTextLbl}>PDF</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.shareBtn} onPress={onScheduleReminder} testID="reminder-btn">
+            <Ionicons name="notifications-outline" size={18} color={colors.warning} />
+            <Text style={styles.shareTextLbl}>Lembrete</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.section}>MÚSICOS ({scale.assignments.length})</Text>
         {scale.assignments.length === 0 ? (
@@ -172,4 +208,7 @@ const styles = StyleSheet.create({
   keyBadge: { backgroundColor: colors.olive, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
   keyText: { color: "#fff", fontWeight: "700", fontSize: 11 },
   muted: { color: colors.textSecondary, fontSize: 13 },
+  shareRow: { flexDirection: "row", gap: 8 },
+  shareBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 11, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  shareTextLbl: { fontSize: 12, fontWeight: "600", color: colors.text },
 });

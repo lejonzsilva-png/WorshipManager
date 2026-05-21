@@ -20,3 +20,10 @@ frontend/web-build/
 
 # Emergent internal (não interfere se ficar)
 # .emergent/
+.env
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials

@@ -37,6 +37,6 @@
   "seed_data_creation": "Per-run unique TEST data: 1 leader (TEST Perm Leader {SUFFIX}) creating ministry 'TEST Perm Ministry {SUFFIX}', 2 members (TEST Perm Member / Member2) joining via invite_code. A few TEST songs/scales/announcements are created during the flow. All test data is prefixed with 'TEST_' and uses a per-run uuid suffix; safe to re-run.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
-  "context_for_next_testing_agent": "Permission tests live in /app/backend/tests/test_permissions.py. Module-scoped fixtures `leader`, `member`, `member2` are reused. BASE_URL defaults to https://worship-hub-100.preview.emergentagent.com/api (overridable via env EXTERNAL_API_BASE). All 22 review-request bullets are covered with at least one assertion each (24 tests total). The new endpoint PUT /api/ministry/members/{member_id} accepts {role?, permissions?} and is leader-only.",
+  "context_for_next_testing_agent": "Permission tests live in /app/backend/tests/test_permissions.py. Module-scoped fixtures `leader`, `member`, `member2` are reused. BASE_URL defaults to https://escala-louvor.preview.emergentagent.com/api (overridable via env EXTERNAL_API_BASE). All 22 review-request bullets are covered with at least one assertion each (24 tests total). The new endpoint PUT /api/ministry/members/{member_id} accepts {role?, permissions?} and is leader-only.",
   "rca_of_issue": "N/A - no bugs found in the permission system. Every behavior described in the spec is implemented correctly and verified end-to-end against the public preview URL."
 }

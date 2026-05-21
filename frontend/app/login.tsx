@@ -13,14 +13,17 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/context/AuthContext";
+import { signInWithGoogleEmergent } from "@/src/utils/googleAuth";
+import { api, setToken } from "@/src/api/client";
 import { colors, radius, spacing } from "@/src/theme";
 
 export default function Login() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, refresh } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onLogin = async () => {
@@ -37,6 +40,31 @@ export default function Login() {
       setError(e.message || "Erro ao entrar");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      const session_id = await signInWithGoogleEmergent();
+      if (!session_id) {
+        // On web the page navigates away; on native we return here on cancel
+        setGoogleLoading(false);
+        return;
+      }
+      const res = await api<{ token: string }>("/auth/google", {
+        method: "POST",
+        body: { session_id },
+        auth: false,
+      });
+      await setToken(res.token);
+      await refresh();
+      router.replace("/(tabs)");
+    } catch (e: any) {
+      setError(e?.message || "Falha no login com Google");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -95,6 +123,28 @@ export default function Login() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.btnPrimaryText}>Entrar</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>ou</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <TouchableOpacity
+              testID="login-google"
+              style={[styles.btnGoogle, googleLoading && { opacity: 0.6 }]}
+              onPress={onGoogle}
+              disabled={googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <Text style={styles.btnGoogleText}>Continuar com Google</Text>
+                </>
               )}
             </TouchableOpacity>
 
@@ -162,6 +212,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   btnPrimaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: spacing.md },
+  divider: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textDisabled, fontSize: 12 },
+  btnGoogle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    paddingVertical: 14,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  btnGoogleText: { color: colors.text, fontSize: 15, fontWeight: "600" },
   linkBtn: { marginTop: spacing.md, alignItems: "center" },
   linkText: { color: colors.textSecondary, fontSize: 14 },
   linkBold: { color: colors.olive, fontWeight: "600" },

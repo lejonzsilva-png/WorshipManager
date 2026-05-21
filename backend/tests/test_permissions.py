@@ -18,7 +18,7 @@ import requests
 
 BASE_URL = os.environ.get(
     "EXTERNAL_API_BASE",
-    "https://worship-hub-100.preview.emergentagent.com",
+    "https://escala-louvor.preview.emergentagent.com",
 ).rstrip("/") + "/api"
 
 SUFFIX = uuid.uuid4().hex[:8]

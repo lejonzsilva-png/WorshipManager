@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 BASE_URL = os.environ.get(
     "EXTERNAL_API_BASE",
-    "https://worship-hub-100.preview.emergentagent.com/api",
+    "https://escala-louvor.preview.emergentagent.com/api",
 )
 
 SUFFIX = uuid.uuid4().hex[:8]

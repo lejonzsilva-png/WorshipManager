@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { api, setToken, clearToken, getToken } from "@/src/api/client";
+import { registerExpoPushToken } from "@/src/utils/notifications";
 
 export type User = {
   id: string;
@@ -61,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const min = await api<Ministry>("/ministry");
       setUser(me);
       setMinistry(min);
+      // Best-effort push token registration (silent fail)
+      registerExpoPushToken().catch(() => {});
     } catch {
       await clearToken();
       setUser(null);
@@ -83,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setToken(res.token);
     setUser(res.user);
     setMinistry(res.ministry);
+    registerExpoPushToken().catch(() => {});
   };
 
   const signUp = async (data: {

@@ -1,5 +1,6 @@
 """LouvorApp - Worship Ministry Management API."""
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, status, Request
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9,10 +10,12 @@ import logging
 import secrets
 import string
 import uuid
+import asyncio
+import httpx
 import bcrypt
 import jwt
 from pathlib import Path
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 
@@ -148,6 +151,45 @@ class UpdateProfileReq(BaseModel):
     phone: Optional[str] = None
 
 
+class GoogleSessionReq(BaseModel):
+    session_id: str
+    invite_code: Optional[str] = None
+    ministry_name: Optional[str] = None
+
+
+class AvailabilityCreate(BaseModel):
+    date: str  # ISO date "YYYY-MM-DD"
+    status: Literal["available", "unavailable"] = "available"
+    note: Optional[str] = ""
+
+
+class Availability(AvailabilityCreate):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    ministry_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WebhookCreate(BaseModel):
+    url: str
+    events: List[str] = ["scale.created", "scale.updated", "scale.deleted"]
+    description: Optional[str] = ""
+
+
+class Webhook(WebhookCreate):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    ministry_id: str
+    secret: str = Field(default_factory=lambda: secrets.token_urlsafe(24))
+    active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PushTokenReq(BaseModel):
+    token: str
+    platform: Optional[str] = "expo"
+
+
 # ============= Helpers =============
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
@@ -172,6 +214,31 @@ def gen_invite_code() -> str:
 
 def gen_api_key() -> str:
     return "lvr_" + secrets.token_urlsafe(32)
+
+
+async def trigger_webhooks(ministry_id: str, event: str, payload: dict) -> None:
+    """Fire-and-forget POST to all registered active webhooks for a ministry/event."""
+    hooks = await db.webhooks.find(
+        {"ministry_id": ministry_id, "active": True, "events": event}, {"_id": 0}
+    ).to_list(50)
+    if not hooks:
+        return
+    body = {
+        "event": event,
+        "ministry_id": ministry_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": payload,
+    }
+
+    async def _post(url: str, secret: str) -> None:
+        try:
+            async with httpx.AsyncClient(timeout=8) as h:
+                await h.post(url, json=body, headers={"X-Louvor-Secret": secret, "X-Louvor-Event": event})
+        except Exception as e:
+            logger.warning("webhook failed url=%s err=%s", url, e)
+
+    for hk in hooks:
+        asyncio.create_task(_post(hk["url"], hk.get("secret", "")))
 
 
 def to_public_user(u: dict) -> UserPublic:
@@ -275,9 +342,79 @@ async def signup(req: SignupReq):
 @api.post("/auth/login", response_model=AuthResp)
 async def login(req: LoginReq):
     user = await db.users.find_one({"email": req.email.lower()}, {"_id": 0})
-    if not user or not verify_password(req.password, user["password_hash"]):
+    if not user or not user.get("password_hash") or not verify_password(req.password, user["password_hash"]):
         raise HTTPException(401, "E-mail ou senha incorretos")
     ministry = await db.ministries.find_one({"id": user["ministry_id"]}, {"_id": 0})
+    if ministry and isinstance(ministry.get("created_at"), datetime):
+        ministry["created_at"] = ministry["created_at"].isoformat()
+    return AuthResp(token=create_token(user["id"]), user=to_public_user(user), ministry=ministry or {})
+
+
+@api.post("/auth/google", response_model=AuthResp)
+async def google_auth(req: GoogleSessionReq):
+    """Login with Google via Emergent Auth.
+
+    Frontend redirects to https://auth.emergentagent.com/?redirect=<url>, then sends the returned
+    session_id here. We exchange it for user data, then create or update the user and return JWT.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=15) as h:
+            r = await h.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": req.session_id},
+            )
+            if r.status_code != 200:
+                raise HTTPException(401, "Sessão Google inválida ou expirada")
+            data = r.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Falha ao validar sessão Google: {e}")
+
+    email = (data.get("email") or "").lower()
+    name = data.get("name") or email.split("@")[0]
+    if not email:
+        raise HTTPException(400, "Conta Google sem e-mail")
+
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if user:
+        ministry = await db.ministries.find_one({"id": user["ministry_id"]}, {"_id": 0})
+    else:
+        # New user: either join via invite or create a new ministry as leader
+        ministry_doc = None
+        role = "member"
+        if req.invite_code:
+            ministry_doc = await db.ministries.find_one({"invite_code": req.invite_code.upper()}, {"_id": 0})
+            if not ministry_doc:
+                raise HTTPException(400, "Código de convite inválido")
+        else:
+            m_name = req.ministry_name or f"Ministério de {name}"
+            m = Ministry(name=m_name, invite_code=gen_invite_code(), created_by="pending")
+            ministry_doc = m.model_dump()
+            await db.ministries.insert_one(ministry_doc.copy())
+            role = "leader"
+
+        user_id = str(uuid.uuid4())
+        user_doc = {
+            "id": user_id,
+            "name": name,
+            "email": email,
+            "password_hash": None,
+            "google_id": data.get("id") or data.get("user_id"),
+            "avatar_url": data.get("picture"),
+            "role": role,
+            "ministry_id": ministry_doc["id"],
+            "instruments": [],
+            "permissions": [],
+            "phone": None,
+            "avatar_color": secrets.choice(["#2E412A", "#D96C5B", "#E6B97A", "#4A6E82", "#3E6649"]),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.users.insert_one(user_doc.copy())
+        if role == "leader":
+            await db.ministries.update_one({"id": ministry_doc["id"]}, {"$set": {"created_by": user_id}})
+            ministry_doc["created_by"] = user_id
+        user = user_doc
+        ministry = ministry_doc
+
     if ministry and isinstance(ministry.get("created_at"), datetime):
         ministry["created_at"] = ministry["created_at"].isoformat()
     return AuthResp(token=create_token(user["id"]), user=to_public_user(user), ministry=ministry or {})
@@ -415,6 +552,7 @@ async def create_scale(req: ScaleCreate, user: dict = Depends(current_user)):
     doc = scale.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     await db.scales.insert_one(doc.copy())
+    await trigger_webhooks(user["ministry_id"], "scale.created", doc)
     return scale
 
 
@@ -440,7 +578,9 @@ async def update_scale(scale_id: str, req: ScaleCreate, user: dict = Depends(cur
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Escala não encontrada")
-    return await db.scales.find_one({"id": scale_id}, {"_id": 0})
+    updated = await db.scales.find_one({"id": scale_id}, {"_id": 0})
+    await trigger_webhooks(user["ministry_id"], "scale.updated", updated)
+    return updated
 
 
 @api.delete("/scales/{scale_id}")
@@ -449,7 +589,78 @@ async def delete_scale(scale_id: str, user: dict = Depends(current_user)):
     res = await db.scales.delete_one({"id": scale_id, "ministry_id": user["ministry_id"]})
     if res.deleted_count == 0:
         raise HTTPException(404, "Escala não encontrada")
+    await trigger_webhooks(user["ministry_id"], "scale.deleted", {"id": scale_id})
     return {"ok": True}
+
+
+@api.get("/scales/{scale_id}/export.html", response_class=HTMLResponse)
+async def export_scale_html(scale_id: str, user: dict = Depends(current_user)):
+    """Renderiza a escala em HTML pronto para imprimir/converter em PDF/Imagem."""
+    s = await db.scales.find_one({"id": scale_id, "ministry_id": user["ministry_id"]}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Escala não encontrada")
+    songs = []
+    if s.get("song_ids"):
+        docs = await db.songs.find(
+            {"ministry_id": user["ministry_id"], "id": {"$in": s["song_ids"]}}, {"_id": 0}
+        ).to_list(len(s["song_ids"]))
+        by_id = {d["id"]: d for d in docs}
+        songs = [by_id[sid] for sid in s["song_ids"] if sid in by_id]
+    ministry = await db.ministries.find_one({"id": user["ministry_id"]}, {"_id": 0}) or {}
+
+    def _fmt_date(iso: str) -> str:
+        try:
+            y, m, d = iso.split("T")[0].split("-")
+            return f"{d}/{m}/{y}"
+        except Exception:
+            return iso
+
+    musicians_html = "".join(
+        f'<li><strong>{a["user_name"]}</strong> — <span class="instr">{a["instrument"]}</span></li>'
+        for a in s.get("assignments", [])
+    ) or "<li class='muted'>Nenhum músico atribuído</li>"
+
+    songs_html = "".join(
+        f'<li><strong>{i+1}. {sg["title"]}</strong>'
+        + (f' <span class="muted">— {sg.get("artist","")}</span>' if sg.get("artist") else "")
+        + (f' <span class="badge">Tom: {sg["key"]}</span>' if sg.get("key") else "")
+        + (f' <span class="badge">{sg["bpm"]} BPM</span>' if sg.get("bpm") else "")
+        + "</li>"
+        for i, sg in enumerate(songs)
+    ) or "<li class='muted'>Sem repertório</li>"
+
+    return f"""<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>{s['title']}</title>
+<style>
+*{{box-sizing:border-box}}
+body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:24px;color:#1A2118;background:#FDFBF7}}
+.card{{background:#2E412A;color:#fff;border-radius:24px;padding:24px;margin-bottom:18px}}
+.card h1{{margin:0 0 8px;font-size:26px}}
+.card .meta{{color:#E6B97A;font-size:13px;text-transform:uppercase;letter-spacing:1.2px}}
+.card .row{{margin-top:6px;opacity:.9;font-size:14px}}
+h2{{font-size:13px;letter-spacing:1.4px;color:#5C6658;margin:18px 0 8px}}
+ul{{list-style:none;padding:0;margin:0}}
+li{{background:#fff;border:1px solid #EBE8DF;border-radius:14px;padding:12px 14px;margin-bottom:8px;font-size:14px}}
+.muted{{color:#5C6658}}
+.instr{{color:#2E412A;font-weight:600}}
+.badge{{background:#F4F1E8;color:#2E412A;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:6px}}
+.foot{{margin-top:18px;font-size:11px;color:#A1A89D;text-align:center}}
+@media print{{body{{padding:0}}}}
+</style></head>
+<body>
+<div class="card">
+  <div class="meta">{ministry.get('name','')}</div>
+  <h1>{s['title']}</h1>
+  <div class="row">📅 {_fmt_date(s['date'])} • {s.get('time','')}</div>
+  {f'<div class="row">📍 {s.get("location","")}</div>' if s.get('location') else ''}
+  {f'<div class="row">📝 {s.get("notes","")}</div>' if s.get('notes') else ''}
+</div>
+<h2>MÚSICOS ({len(s.get('assignments', []))})</h2>
+<ul>{musicians_html}</ul>
+<h2>REPERTÓRIO ({len(songs)})</h2>
+<ul>{songs_html}</ul>
+<div class="foot">Gerado por LouvorApp</div>
+</body></html>"""
 
 
 # ============= Announcements =============
@@ -504,6 +715,180 @@ async def stats(user: dict = Depends(current_user)):
 
 
 app.include_router(api)
+
+
+# ============= Availability =============
+av = APIRouter(prefix="/api/availability", tags=["availability"])
+
+
+@av.post("", response_model=Availability)
+async def set_availability(req: AvailabilityCreate, user: dict = Depends(current_user)):
+    """Marca disponibilidade do usuário em uma data (upsert por user+date)."""
+    doc_existing = await db.availability.find_one(
+        {"user_id": user["id"], "date": req.date, "ministry_id": user["ministry_id"]}, {"_id": 0}
+    )
+    if doc_existing:
+        await db.availability.update_one(
+            {"id": doc_existing["id"]},
+            {"$set": {"status": req.status, "note": req.note}},
+        )
+        doc = await db.availability.find_one({"id": doc_existing["id"]}, {"_id": 0})
+        return doc
+    a = Availability(
+        **req.model_dump(),
+        user_id=user["id"],
+        user_name=user["name"],
+        ministry_id=user["ministry_id"],
+    )
+    d = a.model_dump()
+    d["created_at"] = d["created_at"].isoformat()
+    await db.availability.insert_one(d.copy())
+    return a
+
+
+@av.get("/me", response_model=List[Availability])
+async def my_availability(user: dict = Depends(current_user)):
+    items = (
+        await db.availability.find({"user_id": user["id"]}, {"_id": 0})
+        .sort("date", 1)
+        .to_list(500)
+    )
+    today = datetime.now(timezone.utc).date().isoformat()
+    return [i for i in items if i["date"] >= today]
+
+
+@av.get("/ministry")
+async def ministry_availability(date: Optional[str] = None, user: dict = Depends(current_user)):
+    """Disponibilidade do ministério.
+    - Se date informado: retorna lista de status por membro para a data
+    - Sem date: agrupa por data (próximas 60 entradas)
+    """
+    today = datetime.now(timezone.utc).date().isoformat()
+    if date:
+        items = await db.availability.find(
+            {"ministry_id": user["ministry_id"], "date": date}, {"_id": 0}
+        ).to_list(500)
+        return {"date": date, "entries": items}
+    items = (
+        await db.availability.find(
+            {"ministry_id": user["ministry_id"], "date": {"$gte": today}}, {"_id": 0}
+        )
+        .sort("date", 1)
+        .to_list(500)
+    )
+    grouped: dict = {}
+    for it in items:
+        grouped.setdefault(it["date"], []).append(it)
+    return {"by_date": grouped}
+
+
+@av.delete("/{availability_id}")
+async def delete_availability(availability_id: str, user: dict = Depends(current_user)):
+    res = await db.availability.delete_one(
+        {"id": availability_id, "user_id": user["id"]}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Registro não encontrado")
+    return {"ok": True}
+
+
+app.include_router(av)
+
+
+# ============= Webhooks =============
+wh = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
+
+
+@wh.post("", response_model=Webhook)
+async def create_webhook(req: WebhookCreate, user: dict = Depends(current_user)):
+    require_leader(user)
+    if not req.url.startswith("http"):
+        raise HTTPException(400, "URL inválida")
+    w = Webhook(**req.model_dump(), ministry_id=user["ministry_id"])
+    d = w.model_dump()
+    d["created_at"] = d["created_at"].isoformat()
+    await db.webhooks.insert_one(d.copy())
+    return w
+
+
+@wh.get("", response_model=List[Webhook])
+async def list_webhooks(user: dict = Depends(current_user)):
+    require_leader(user)
+    items = await db.webhooks.find(
+        {"ministry_id": user["ministry_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return items
+
+
+@wh.delete("/{webhook_id}")
+async def delete_webhook(webhook_id: str, user: dict = Depends(current_user)):
+    require_leader(user)
+    res = await db.webhooks.delete_one(
+        {"id": webhook_id, "ministry_id": user["ministry_id"]}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Webhook não encontrado")
+    return {"ok": True}
+
+
+@wh.post("/{webhook_id}/test")
+async def test_webhook(webhook_id: str, user: dict = Depends(current_user)):
+    require_leader(user)
+    hook = await db.webhooks.find_one(
+        {"id": webhook_id, "ministry_id": user["ministry_id"]}, {"_id": 0}
+    )
+    if not hook:
+        raise HTTPException(404, "Webhook não encontrado")
+    try:
+        async with httpx.AsyncClient(timeout=10) as h:
+            r = await h.post(
+                hook["url"],
+                json={
+                    "event": "webhook.test",
+                    "ministry_id": user["ministry_id"],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "data": {"hello": "world"},
+                },
+                headers={"X-Louvor-Secret": hook.get("secret", ""), "X-Louvor-Event": "webhook.test"},
+            )
+            return {"ok": True, "status_code": r.status_code}
+    except Exception as e:
+        raise HTTPException(502, f"Falha ao chamar webhook: {e}")
+
+
+app.include_router(wh)
+
+
+# ============= Push tokens =============
+pt = APIRouter(prefix="/api/push", tags=["push"])
+
+
+@pt.post("/token")
+async def register_push_token(req: PushTokenReq, user: dict = Depends(current_user)):
+    """Registra/atualiza um Expo Push Token para o usuário (opcional)."""
+    if not req.token:
+        raise HTTPException(400, "Token vazio")
+    await db.push_tokens.update_one(
+        {"user_id": user["id"], "token": req.token},
+        {"$set": {
+            "user_id": user["id"],
+            "token": req.token,
+            "platform": req.platform or "expo",
+            "ministry_id": user["ministry_id"],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@pt.delete("/token")
+async def delete_push_token(req: PushTokenReq, user: dict = Depends(current_user)):
+    await db.push_tokens.delete_one({"user_id": user["id"], "token": req.token})
+    return {"ok": True}
+
+
+app.include_router(pt)
 
 
 # ============= External API (for metronome/other apps) =============
