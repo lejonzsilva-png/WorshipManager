@@ -1,48 +1,53 @@
 """LouvorApp - Worship Ministry Management API."""
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, status, Request
-from fastapi.responses import HTMLResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Literal
-from dotenv import load_dotenv
+from fastapi import FastAPI, APIRouter, HTTPException
+from pydantic import BaseModel, EmailStr
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 import os
 import logging
-import bcrypt
-import jwt
-import uuid
-import secrets
-import string
-import httpx
-import asyncio
-from datetime import datetime, timezone, timedelta
+from dotenv import load_dotenv
 
-# Carrega o .env se existir (para testes locais)
+# Configuração de tipos para o Pydantic (Resolve o erro ConfigError)
+class LoginSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+# Carrega o .env se existir
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# Configuração protegida para evitar erros de arranque no Render
+# Configuração protegida
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
 if not MONGO_URL or not DB_NAME:
-    # Isto vai aparecer no log do Render se as variáveis não estiverem lá
     raise ValueError("ERRO CRÍTICO: MONGO_URL ou DB_NAME não definidos nas variáveis de ambiente do Render!")
-
-JWT_SECRET = os.environ.get("JWT_SECRET", "louvorapp-dev-secret-change-in-prod-2026")
-JWT_ALG = "HS256"
-JWT_EXP_DAYS = 30
 
 # Inicializa o cliente MongoDB
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
 app = FastAPI(title="LouvorApp API")
+
+# 1. Configuração de CORS (Essencial para o frontend conectar)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 api = APIRouter(prefix="/api")
-auth_scheme = HTTPBearer(auto_error=False)
+
+# Exemplo de rota de login (ajusta conforme a tua necessidade)
+@api.post("/login")
+async def login(credentials: LoginSchema):
+    # Logica de autenticacao vai aqui
+    return {"message": "Login endpoint ativo"}
+
+app.include_router(api)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("louvorapp")
-
