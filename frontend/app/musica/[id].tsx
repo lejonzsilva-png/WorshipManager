@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing } from "@/src/theme";
 
 type Song = {
@@ -28,10 +29,16 @@ export default function MusicaDetail() {
   }, [id]);
 
   const onDelete = () =>
-    Alert.alert("Excluir música?", "", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: async () => { await api(`/songs/${id}`, { method: "DELETE" }); router.back(); } },
-    ]);
+    confirm({
+      title: "Excluir música?",
+      message: "Esta ação não pode ser desfeita.",
+      confirmText: "Excluir",
+      destructive: true,
+      onConfirm: async () => {
+        await api(`/songs/${id}`, { method: "DELETE" });
+        router.back();
+      },
+    });
 
   if (loading) return <SafeAreaView style={styles.center}><ActivityIndicator color={colors.olive} /></SafeAreaView>;
   if (!song) return null;

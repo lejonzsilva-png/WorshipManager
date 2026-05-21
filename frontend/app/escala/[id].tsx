@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
+import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing, formatDateBR, formatDayName } from "@/src/theme";
 
 type Scale = {
@@ -26,32 +27,38 @@ export default function EscalaDetail() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await api<Scale>(`/scales/${id}`);
-        setScale(s);
-        if (s.song_ids.length) {
-          const all = await api<Song[]>("/songs");
-          setSongs(all.filter((x) => s.song_ids.includes(x.id)));
-        }
-      } finally {
-        setLoading(false);
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const s = await api<Scale>(`/scales/${id}`);
+      setScale(s);
+      if (s.song_ids.length) {
+        const all = await api<Song[]>("/songs");
+        setSongs(all.filter((x) => s.song_ids.includes(x.id)));
+      } else {
+        setSongs([]);
       }
-    })();
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
+  useEffect(() => { load(); }, [load]);
+
+  // Reload when returning from edit screen
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
   const onDelete = () => {
-    Alert.alert("Excluir escala?", "Esta ação não pode ser desfeita.", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Excluir", style: "destructive",
-        onPress: async () => {
-          await api(`/scales/${id}`, { method: "DELETE" });
-          router.back();
-        },
+    confirm({
+      title: "Excluir escala?",
+      message: "Esta ação não pode ser desfeita.",
+      confirmText: "Excluir",
+      destructive: true,
+      onConfirm: async () => {
+        await api(`/scales/${id}`, { method: "DELETE" });
+        router.back();
       },
-    ]);
+    });
   };
 
   if (loading) {
@@ -64,7 +71,14 @@ export default function EscalaDetail() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} testID="back-btn"><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={styles.headerTitle}>Detalhes</Text>
-        <TouchableOpacity onPress={onDelete} testID="delete-scale"><Ionicons name="trash-outline" size={22} color={colors.error} /></TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => router.push(`/escala/nova?id=${id}`)} testID="edit-scale" style={styles.headerBtn}>
+            <Ionicons name="create-outline" size={22} color={colors.olive} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} testID="delete-scale" style={styles.headerBtn}>
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -130,6 +144,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerActions: { flexDirection: "row", gap: 4 },
+  headerBtn: { padding: 6 },
   headerTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
   content: { padding: spacing.lg, gap: 12 },
   heroCard: { backgroundColor: colors.olive, borderRadius: radius.xl, padding: spacing.lg },

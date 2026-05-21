@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
 import { useAuth } from "@/src/context/AuthContext";
+import { confirm } from "@/src/utils/confirm";
 import { colors, radius, spacing } from "@/src/theme";
 
 type Ann = { id: string; title: string; message: string; author_name: string; author_id: string; created_at: string };
@@ -22,10 +23,15 @@ export default function Avisos() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onDelete = (id: string) =>
-    Alert.alert("Excluir aviso?", "", [
-      { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: async () => { await api(`/announcements/${id}`, { method: "DELETE" }); load(); } },
-    ]);
+    confirm({
+      title: "Excluir aviso?",
+      confirmText: "Excluir",
+      destructive: true,
+      onConfirm: async () => {
+        await api(`/announcements/${id}`, { method: "DELETE" });
+        load();
+      },
+    });
 
   return (
     <SafeAreaView style={styles.container} testID="avisos-screen" edges={["top"]}>

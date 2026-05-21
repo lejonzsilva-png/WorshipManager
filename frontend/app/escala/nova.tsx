@@ -4,16 +4,28 @@ import {
   KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/src/api/client";
 import { colors, radius, spacing } from "@/src/theme";
 
 type Member = { id: string; name: string; instruments: string[]; avatar_color: string };
 type Song = { id: string; title: string; artist?: string; key?: string };
+type ScaleData = {
+  id: string;
+  title: string;
+  date: string;
+  time?: string;
+  location?: string;
+  notes?: string;
+  song_ids: string[];
+  assignments: { user_id: string; user_name: string; instrument: string }[];
+};
 
 export default function NovaEscala() {
   const router = useRouter();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const isEdit = !!editId;
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("19:30");
@@ -24,13 +36,32 @@ export default function NovaEscala() {
   const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<{ user_id: string; user_name: string; instrument: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(isEdit);
 
   useEffect(() => {
-    Promise.all([
-      api<Member[]>("/ministry/members"),
-      api<Song[]>("/songs"),
-    ]).then(([m, s]) => { setMembers(m); setSongs(s); }).catch(() => {});
-  }, []);
+    (async () => {
+      try {
+        const [m, s] = await Promise.all([
+          api<Member[]>("/ministry/members"),
+          api<Song[]>("/songs"),
+        ]);
+        setMembers(m);
+        setSongs(s);
+        if (isEdit && editId) {
+          const sc = await api<ScaleData>(`/scales/${editId}`);
+          setTitle(sc.title);
+          setDate(sc.date);
+          setTime(sc.time || "19:30");
+          setLocation(sc.location || "");
+          setNotes(sc.notes || "");
+          setSelectedSongs(sc.song_ids || []);
+          setAssignments(sc.assignments || []);
+        }
+      } catch {} finally {
+        setInitialLoading(false);
+      }
+    })();
+  }, [isEdit, editId]);
 
   const toggleSong = (id: string) =>
     setSelectedSongs((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -48,10 +79,12 @@ export default function NovaEscala() {
     }
     setSaving(true);
     try {
-      await api("/scales", {
-        method: "POST",
-        body: { title, date, time, location, notes, song_ids: selectedSongs, assignments },
-      });
+      const body = { title, date, time, location, notes, song_ids: selectedSongs, assignments };
+      if (isEdit && editId) {
+        await api(`/scales/${editId}`, { method: "PUT", body });
+      } else {
+        await api("/scales", { method: "POST", body });
+      }
       router.back();
     } catch (e: any) {
       Alert.alert("Erro", e.message);
@@ -66,12 +99,17 @@ export default function NovaEscala() {
         <TouchableOpacity onPress={() => router.back()} testID="back-btn">
           <Ionicons name="close" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nova Escala</Text>
-        <TouchableOpacity onPress={onSave} disabled={saving} testID="save-scale">
+        <Text style={styles.headerTitle}>{isEdit ? "Editar Escala" : "Nova Escala"}</Text>
+        <TouchableOpacity onPress={onSave} disabled={saving || initialLoading} testID="save-scale">
           {saving ? <ActivityIndicator color={colors.olive} /> : <Text style={styles.saveText}>Salvar</Text>}
         </TouchableOpacity>
       </View>
 
+      {initialLoading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={colors.olive} />
+        </View>
+      ) : (
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.label}>Título *</Text>
@@ -142,6 +180,7 @@ export default function NovaEscala() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
