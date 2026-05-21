@@ -7,28 +7,25 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
-import secrets
-import string
-import uuid
-import asyncio
-import httpx
-import bcrypt
-import jwt
-from pathlib import Path
-from pydantic import BaseModel, Field, EmailStr, HttpUrl
-from typing import List, Optional, Literal
-from datetime import datetime, timedelta, timezone
+# ... (mantém o resto dos teus imports iguais)
 
+# Carrega o .env se existir (para testes locais)
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# Config
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
+# Configuração protegida para evitar erros de arranque no Render
+MONGO_URL = os.environ.get("MONGO_URL")
+DB_NAME = os.environ.get("DB_NAME")
+
+if not MONGO_URL or not DB_NAME:
+    # Isto vai aparecer no log do Render se as variáveis não estiverem lá
+    raise ValueError("ERRO CRÍTICO: MONGO_URL ou DB_NAME não definidos nas variáveis de ambiente do Render!")
+
 JWT_SECRET = os.environ.get("JWT_SECRET", "louvorapp-dev-secret-change-in-prod-2026")
 JWT_ALG = "HS256"
 JWT_EXP_DAYS = 30
 
+# Inicializa o cliente MongoDB
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
