@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 from dotenv import load_dotenv
 
-# Configuração de tipos para o Pydantic
+# ==================== SCHEMAS (Modelos de Dados) ====================
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
@@ -21,15 +21,15 @@ class SignupSchema(BaseModel):
     ministry_name: Optional[str] = None
     invite_code: Optional[str] = None
 
+# A correção crucial está aqui: usar Optional para que o FastAPI não obrigue a enviar ambos
 class GoogleAuthSchema(BaseModel):
     token: Optional[str] = None
     session_id: Optional[str] = None
 
-# Carrega o .env se existir
+# ==================== CONFIGURAÇÃO INICIAL ====================
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# Configuração protegida
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
@@ -61,9 +61,6 @@ async def login(credentials: LoginSchema):
     """Autentica o utilizador com email e password"""
     try:
         # TODO: Implementar lógica de autenticação real
-        # - Verificar se o email existe na BD
-        # - Verificar a password
-        # - Gerar JWT token
         return {
             "success": True,
             "message": "Login efetuado com sucesso",
@@ -72,19 +69,19 @@ async def login(credentials: LoginSchema):
                 "id": "user-123",
                 "email": credentials.email,
                 "name": "Utilizador",
-                "role": "member",  # ✅ ADICIONADO
-                "ministry_id": "ministry-123",  # ✅ ADICIONADO
-                "instruments": [],  # ✅ ADICIONADO
-                "permissions": [],  # ✅ ADICIONADO
-                "phone": None,  # ✅ ADICIONADO
-                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
+                "role": "member",
+                "ministry_id": "ministry-123",
+                "instruments": [],
+                "permissions": [],
+                "phone": None,
+                "avatar_color": "#FF6B6B"
             },
             "ministry": {
                 "id": "ministry-123",
                 "name": "Ministério Exemplo",
-                "invite_code": "ABC123",  # ✅ ADICIONADO
-                "api_key": "key-123",  # ✅ ADICIONADO
-                "created_by": "user-123"  # ✅ ADICIONADO
+                "invite_code": "ABC123",
+                "api_key": "key-123",
+                "created_by": "user-123"
             }
         }
     except Exception as e:
@@ -95,10 +92,6 @@ async def signup(data: SignupSchema):
     """Regista um novo utilizador"""
     try:
         # TODO: Implementar lógica de registo real
-        # - Verificar se o email já existe
-        # - Hash da password
-        # - Guardar na BD
-        # - Gerar JWT token
         return {
             "success": True,
             "message": "Registo efetuado com sucesso",
@@ -107,19 +100,19 @@ async def signup(data: SignupSchema):
                 "id": "user-123",
                 "email": data.email,
                 "name": data.name,
-                "role": "member",  # ✅ ADICIONADO
-                "ministry_id": "ministry-123",  # ✅ ADICIONADO
-                "instruments": [],  # ✅ ADICIONADO
-                "permissions": [],  # ✅ ADICIONADO
-                "phone": None,  # ✅ ADICIONADO
-                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
+                "role": "member",
+                "ministry_id": "ministry-123",
+                "instruments": [],
+                "permissions": [],
+                "phone": None,
+                "avatar_color": "#FF6B6B"
             },
             "ministry": {
                 "id": "ministry-123",
-                "name": data.ministry_name or "Minha Ministério",
-                "invite_code": data.invite_code or "ABC123",  # ✅ ADICIONADO
-                "api_key": "key-123",  # ✅ ADICIONADO
-                "created_by": "user-123"  # ✅ ADICIONADO
+                "name": data.ministry_name or "Meu Ministério",
+                "invite_code": data.invite_code or "ABC123",
+                "api_key": "key-123",
+                "created_by": "user-123"
             }
         }
     except Exception as e:
@@ -146,19 +139,19 @@ async def auth_google(data: GoogleAuthSchema):
                 "id": "user-123",
                 "email": "user@gmail.com",
                 "name": "Utilizador Google",
-                "role": "member",  # ✅ ADICIONADO
-                "ministry_id": "ministry-123",  # ✅ ADICIONADO
-                "instruments": [],  # ✅ ADICIONADO
-                "permissions": [],  # ✅ ADICIONADO
-                "phone": None,  # ✅ ADICIONADO
-                "avatar_color": "#FF6B6B"  # ✅ ADICIONADO
+                "role": "member",
+                "ministry_id": "ministry-123",
+                "instruments": [],
+                "permissions": [],
+                "phone": None,
+                "avatar_color": "#FF6B6B"
             },
             "ministry": {
                 "id": "ministry-123",
                 "name": "Ministério Google",
-                "invite_code": "ABC123",  # ✅ ADICIONADO
-                "api_key": "key-123",  # ✅ ADICIONADO
-                "created_by": "user-123"  # ✅ ADICIONADO
+                "invite_code": "ABC123",
+                "api_key": "key-123",
+                "created_by": "user-123"
             }
         }
     except HTTPException:
@@ -188,7 +181,7 @@ async def get_me():
 
 @api.get("/ministry")
 async def get_ministry():
-    """Retorna os dados da ministério do utilizador"""
+    """Retorna os dados do ministério do utilizador"""
     # TODO: Buscar ministério da BD baseado no utilizador
     return {
         "id": "ministry-123",
