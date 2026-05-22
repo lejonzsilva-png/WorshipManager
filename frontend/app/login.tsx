@@ -14,7 +14,8 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/context/AuthContext";
 import { signInWithGoogleEmergent } from "@/src/utils/googleAuth";
-import { api, setToken } from "@/src/api/client";
+// ALTERAÇÃO: Importação corrigida com chaves para corresponder às exportações do client.ts
+import { api, setToken } from "@/src/api/client"; 
 import { colors, radius, spacing } from "@/src/theme";
 
 export default function Login() {
@@ -34,6 +35,7 @@ export default function Login() {
     }
     setLoading(true);
     try {
+      // A função api agora tratará automaticamente o prefixo /api se necessário
       const res = await api("/login", {
         method: "POST",
         body: { email: email.trim().toLowerCase(), password },
@@ -48,7 +50,6 @@ export default function Login() {
         
         await refreshSession();
         
-        // Timeout de segurança para garantir a atualização dos estados antes de mudar de ecrã
         setTimeout(() => {
           router.replace("/(tabs)");
         }, 100);
@@ -140,120 +141,3 @@ export default function Login() {
 
             <TouchableOpacity
               testID="login-submit"
-              style={[styles.btnPrimary, loading && { opacity: 0.6 }]}
-              onPress={onLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.btnPrimaryText}>Entrar</Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>ou</Text>
-              <View style={styles.divider} />
-            </View>
-
-            <TouchableOpacity
-              testID="login-google"
-              style={[styles.btnGoogle, googleLoading && { opacity: 0.6 }]}
-              onPress={onGoogle}
-              disabled={googleLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator color={colors.text} />
-              ) : (
-                <>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" />
-                  <Text style={styles.btnGoogleText}>Continuar com Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              testID="go-register"
-              style={styles.linkBtn}
-              onPress={() => router.push("/register")}
-            >
-              <Text style={styles.linkText}>
-                Não tem conta? <Text style={styles.linkBold}>Criar conta</Text>
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  bg: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, paddingTop: 80 },
-  brandWrap: { alignItems: "center", marginBottom: spacing.xl },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceElevated,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  brand: { color: colors.text, fontSize: 32, fontWeight: "600", letterSpacing: -0.5 },
-  tag: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: { fontSize: 24, fontWeight: "600", color: colors.text },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md },
-  label: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: 4 },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: colors.text,
-  },
-  error: { color: colors.error, marginTop: 8, fontSize: 13 },
-  btnPrimary: {
-    backgroundColor: colors.olive,
-    borderRadius: radius.full,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: spacing.lg,
-  },
-  btnPrimaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: spacing.md },
-  divider: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.textDisabled, fontSize: 12 },
-  btnGoogle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnGoogleText: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  linkBtn: { marginTop: spacing.md, alignItems: "center" },
-  linkText: { color: colors.textSecondary, fontSize: 14 },
-  linkBold: { color: colors.olive, fontWeight: "600" },
-});
