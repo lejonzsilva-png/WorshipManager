@@ -50,17 +50,16 @@ export default function Register() {
 
     setLoading(true);
     try {
-      const res = await api("/signup", {
-        method: "POST",
-        body: {
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          ministry_name: isJoining ? undefined : ministryName.trim(),
-          invite_code: isJoining ? inviteCode.trim().toUpperCase() : undefined,
-        },
-        auth: false,
-      });
+      const response = await api('/api/auth/signup', {
+  method: "POST",
+  body: {
+    name: name.trim(),
+    email: email.trim().toLowerCase(),
+    password: password,
+    ministry_name: createMinistry ? ministryName.trim() : undefined,
+    invite_code: !createMinistry ? inviteCode.trim().toUpperCase() : undefined,
+  }
+});
 
       if (res && res.token) {
         // 1. Grava o token de autenticação de forma segura
