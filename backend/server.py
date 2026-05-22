@@ -14,17 +14,16 @@ load_dotenv()
 client = AsyncIOMotorClient(os.getenv("MONGO_URL"))
 db = client[os.getenv("DB_NAME", "worshipmanager")]
 
-app = FastAPI(title="LouvorApp API")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# SCHEMAS DEFINIDOS NO TOPO
+# SCHEMAS (Devem estar fora das rotas)
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
@@ -38,10 +37,9 @@ api = APIRouter(prefix="/api")
 
 @api.post("/login")
 async def login(data: LoginSchema):
-    # O Pydantic valida automaticamente. Se receber 422, o frontend não está a enviar 'email' e 'password'
     user = await db.users.find_one({"email": data.email.lower()})
     if not user or not bcrypt.checkpw(data.password.encode(), user["password"].encode()):
-        raise HTTPException(status_code=401, detail="Credenciais incorretas.")
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
     
     token = jwt.encode(
         {"sub": user["id"], "exp": datetime.now(timezone.utc) + timedelta(days=7)},
