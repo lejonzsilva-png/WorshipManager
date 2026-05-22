@@ -1,58 +1,20 @@
-import { storage } from "@/src/utils/storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
-// Forçamos o link correto do backend diretamente para evitar falhas de leitura na Web do Render
-const BASE_URL = "https://worshipmanageraapp.onrender.com";
-const TOKEN_KEY = "louvor_token";
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://seu-app.onrender.com/api';
 
-export async function getToken(): Promise<string | null> {
-  return await storage.secureGet(TOKEN_KEY, "");
-}
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 15000,
+});
 
-export async function setToken(token: string): Promise<void> {
-  await storage.secureSet(TOKEN_KEY, token);
-}
-
-export async function clearToken(): Promise<void> {
-  await storage.secureRemove(TOKEN_KEY);
-}
-
-type ReqOptions = {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: any;
-  auth?: boolean;
-};
-
-export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = true } = opts;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (auth) {
-    const token = await getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+api.interceptors.request.use(async (config) => {
+  const token = await AsyncStorage.getItem('@WorshipManager:token'); // Adicione import AsyncStorage
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  
-  // CORREÇÃO: Adiciona o prefixo /api automaticamente se ainda não existir
-  const fullPath = path.startsWith("/api") ? path : `/api${path}`;
-  
-  // ... (código anterior igual)
-  
-  const res = await fetch(`${BASE_URL}${fullPath}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  
-  if (!res.ok) {
-    // SE O ERRO FOR 401 ou 404, A SESSÃO É INVÁLIDA: LIMPA O TOKEN
-    if (res.status === 401 || res.status === 404) {
-      await clearToken();
-    }
-    const msg = data?.detail || data?.message || "Erro de conexão";
-    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
-  }
-  return data as T;
-}
+  return config;
+});
+
+export { api };
