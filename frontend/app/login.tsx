@@ -34,7 +34,6 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      // Faz o pedido de login diretamente à API
       const res = await api("/login", {
         method: "POST",
         body: { email: email.trim().toLowerCase(), password },
@@ -42,22 +41,23 @@ export default function Login() {
       });
 
       if (res && res.token) {
-        // Guarda o token de sessão de forma segura
         await setToken(res.token);
         
-        // Alimenta o contexto global com as informações retornadas
         if (res.user) setUser(res.user);
         if (res.ministry) setMinistry(res.ministry);
         
-        // Atualiza a sessão por segurança e redireciona
         await refreshSession();
-        router.replace("/(tabs)");
+        
+        // Timeout de segurança para garantir a atualização dos estados antes de mudar de ecrã
+        setTimeout(() => {
+          router.replace("/(tabs)");
+        }, 100);
       } else {
         setError("Resposta inválida do servidor");
+        setLoading(false);
       }
     } catch (e: any) {
       setError(e.message || "Erro ao entrar");
-    } finally {
       setLoading(false);
     }
   };
@@ -82,11 +82,13 @@ export default function Login() {
         if (res.user) setUser(res.user);
         if (res.ministry) setMinistry(res.ministry);
         await refreshSession();
-        router.replace("/(tabs)");
+        
+        setTimeout(() => {
+          router.replace("/(tabs)");
+        }, 100);
       }
     } catch (e: any) {
       setError(e?.message || "Falha no login com Google");
-    } finally {
       setGoogleLoading(false);
     }
   };
