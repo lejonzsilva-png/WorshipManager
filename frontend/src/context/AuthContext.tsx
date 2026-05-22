@@ -56,16 +56,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadSession = async () => {
     try {
       const token = await getToken();
+      console.log("Token recuperado do storage:", token); // <-- DEBUG
+      
       if (!token) {
         setLoading(false);
         return;
       }
+
+      // Vamos adicionar logs para ver qual falha primeiro
       const me = await api<User>("/auth/me");
+      console.log("Dados do utilizador carregados:", me);
+      
       const min = await api<Ministry>("/ministry");
+      console.log("Dados do ministério carregados:", min);
+
       setUser(me);
       setMinistry(min);
       registerExpoPushToken().catch(() => {});
-    } catch {
+    } catch (error) {
+      console.error("ERRO AO CARREGAR SESSÃO:", error); // <-- ONDE ESTÁ O ERRO REAL?
       await clearToken();
       setUser(null);
       setMinistry(null);
@@ -73,10 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadSession();
-  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
