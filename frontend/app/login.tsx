@@ -19,7 +19,7 @@ import { colors, radius, spacing } from "@/src/theme";
 
 export default function Login() {
   const router = useRouter();
-  const { signIn, refresh } = useAuth();
+  const { setUser, setMinistry, refreshSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,8 +34,27 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      await signIn(email.trim().toLowerCase(), password);
-      router.replace("/(tabs)");
+      // Faz o pedido de login diretamente à API
+      const res = await api("/login", {
+        method: "POST",
+        body: { email: email.trim().toLowerCase(), password },
+        auth: false,
+      });
+
+      if (res && res.token) {
+        // Guarda o token de sessão de forma segura
+        await setToken(res.token);
+        
+        // Alimenta o contexto global com as informações retornadas
+        if (res.user) setUser(res.user);
+        if (res.ministry) setMinistry(res.ministry);
+        
+        // Atualiza a sessão por segurança e redireciona
+        await refreshSession();
+        router.replace("/(tabs)");
+      } else {
+        setError("Resposta inválida do servidor");
+      }
     } catch (e: any) {
       setError(e.message || "Erro ao entrar");
     } finally {
@@ -49,18 +68,22 @@ export default function Login() {
     try {
       const session_id = await signInWithGoogleEmergent();
       if (!session_id) {
-        // On web the page navigates away; on native we return here on cancel
         setGoogleLoading(false);
         return;
       }
-      const res = await api<{ token: string }>("/auth/google", {
+      const res = await api<{ token: string, user: any, ministry: any }>("/auth/google", {
         method: "POST",
         body: { session_id },
         auth: false,
       });
-      await setToken(res.token);
-      await refresh();
-      router.replace("/(tabs)");
+      
+      if (res && res.token) {
+        await setToken(res.token);
+        if (res.user) setUser(res.user);
+        if (res.ministry) setMinistry(res.ministry);
+        await refreshSession();
+        router.replace("/(tabs)");
+      }
     } catch (e: any) {
       setError(e?.message || "Falha no login com Google");
     } finally {
