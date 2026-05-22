@@ -9,7 +9,7 @@ import { colors, radius, spacing } from '@/src/theme';
 
 export default function Register() {
   const router = useRouter();
-  const { signup } = useAuth(); // ✅ CORRIGIDO: Usar signup do contexto
+  const { signup } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,41 +20,104 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onRegister = async () => {
-    // Validações
+  // ✅ NOVO: Validar email
+  const isValidEmail = (emailToTest: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(emailToTest);
+  };
+
+  // ✅ NOVO: Validar campos
+  const validateFields = () => {
     setError(null);
 
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setError("Preencha nome, email e senha");
-      return;
+    // Validar nome
+    const nameClean = name.trim();
+    if (!nameClean) {
+      setError("Por favor, digite seu nome completo");
+      return false;
     }
 
-    if (!email.includes("@")) {
-      setError("E-mail inválido");
-      return;
+    if (nameClean.length < 3) {
+      setError("Nome deve ter pelo menos 3 caracteres");
+      return false;
+    }
+
+    // Validar email
+    const emailClean = email.trim().toLowerCase();
+    if (!emailClean) {
+      setError("Por favor, digite seu e-mail");
+      return false;
+    }
+
+    if (!isValidEmail(emailClean)) {
+      setError("E-mail inválido. Digite um e-mail válido (ex: seu@email.com)");
+      return false;
+    }
+
+    // Validar senha
+    if (!password) {
+      setError("Por favor, digite uma senha");
+      return false;
     }
 
     if (password.length < 6) {
       setError("Senha deve ter mínimo 6 caracteres");
-      return;
+      return false;
     }
 
-    if (!isJoining && !ministryName.trim()) {
-      setError("Informe o nome do ministério");
-      return;
+    // Validar ministério OU código de convite
+    if (!isJoining) {
+      // Criar novo ministério
+      const ministryClean = ministryName.trim();
+      if (!ministryClean) {
+        setError("Por favor, digite o nome do ministério");
+        return false;
+      }
+
+      if (ministryClean.length < 3) {
+        setError("Nome do ministério deve ter pelo menos 3 caracteres");
+        return false;
+      }
+    } else {
+      // Entrar com código de convite
+      const codeClean = inviteCode.trim().toUpperCase();
+      if (!codeClean) {
+        setError("Por favor, digite o código de convite");
+        return false;
+      }
+
+      if (codeClean.length < 6) {
+        setError("Código de convite deve ter 6 caracteres");
+        return false;
+      }
+
+      if (codeClean.length > 6) {
+        setError("Código de convite deve ter exatamente 6 caracteres");
+        return false;
+      }
+
+      // Validar se é apenas números e letras
+      if (!/^[A-Z0-9]{6}$/.test(codeClean)) {
+        setError("Código de convite deve conter apenas letras e números");
+        return false;
+      }
     }
 
-    if (isJoining && !inviteCode.trim()) {
-      setError("Informe o código de convite");
+    return true;
+  };
+
+  const onRegister = async () => {
+    // ✅ NOVO: Validar antes de enviar
+    if (!validateFields()) {
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log("🔄 Enviando cadastro...");
+      console.log("🔄 Validações passaram, enviando cadastro...");
 
-      // ✅ CORRIGIDO: Usar método signup do contexto (sem /api/ prefix)
+      // ✅ Preparar dados garantindo campos corretos
       const signupData = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
@@ -64,6 +127,8 @@ export default function Register() {
           : { ministry_name: ministryName.trim() }
         )
       };
+
+      console.log("📤 Dados sendo enviados:", signupData);
 
       await signup(signupData);
 
@@ -79,7 +144,7 @@ export default function Register() {
       );
 
     } catch (error: any) {
-      console.error("❌ Erro completo:", error);
+      console.error("❌ Erro no signup:", error);
       const errorMessage = error.message || "Não foi possível criar a conta. Tente novamente.";
       setError(errorMessage);
     } finally {
@@ -102,41 +167,56 @@ export default function Register() {
         </View>
 
         <View style={styles.form}>
-          <TextInput
-            placeholder="Nome completo"
-            placeholderTextColor="#999"
-            value={name}
-            onChangeText={setName}
-            editable={!loading}
-            style={styles.input}
-            maxLength={100}
-          />
+          {/* NOME */}
+          <View>
+            <Text style={styles.label}>Nome Completo *</Text>
+            <TextInput
+              placeholder="Ex: João da Silva"
+              placeholderTextColor="#999"
+              value={name}
+              onChangeText={setName}
+              editable={!loading}
+              style={styles.input}
+              maxLength={100}
+            />
+          </View>
 
-          <TextInput
-            placeholder="E-mail"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!loading}
-            style={styles.input}
-          />
+          {/* EMAIL */}
+          <View>
+            <Text style={styles.label}>E-mail *</Text>
+            <TextInput
+              placeholder="Ex: seu@email.com"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!loading}
+              style={styles.input}
+            />
+          </View>
 
-          <TextInput
-            placeholder="Senha (mín. 6 caracteres)"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!loading}
-            style={styles.input}
-          />
+          {/* SENHA */}
+          <View>
+            <Text style={styles.label}>Senha (mínimo 6 caracteres) *</Text>
+            <TextInput
+              placeholder="••••••••"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!loading}
+              style={styles.input}
+            />
+          </View>
 
-          {/* Tabs: Criar vs Entrar */}
+          {/* TABS: CRIAR vs ENTRAR */}
           <View style={styles.tabsContainer}>
             <TouchableOpacity 
-              onPress={() => setIsJoining(false)}
+              onPress={() => {
+                setIsJoining(false);
+                setError(null);
+              }}
               disabled={loading}
               style={[styles.tab, !isJoining && styles.tabActive]}
             >
@@ -146,7 +226,10 @@ export default function Register() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              onPress={() => setIsJoining(true)}
+              onPress={() => {
+                setIsJoining(true);
+                setError(null);
+              }}
               disabled={loading}
               style={[styles.tab, isJoining && styles.tabActive]}
             >
@@ -156,34 +239,50 @@ export default function Register() {
             </TouchableOpacity>
           </View>
 
-          {/* Input condicional */}
+          {/* INPUT CONDICIONAL */}
           {!isJoining ? (
-            <TextInput
-              placeholder="Nome do Ministério"
-              placeholderTextColor="#999"
-              value={ministryName}
-              onChangeText={setMinistryName}
-              editable={!loading}
-              style={styles.input}
-              maxLength={100}
-            />
+            <View>
+              <Text style={styles.label}>Nome do Ministério *</Text>
+              <TextInput
+                placeholder="Ex: Ministério de Louvor da Igreja"
+                placeholderTextColor="#999"
+                value={ministryName}
+                onChangeText={setMinistryName}
+                editable={!loading}
+                style={styles.input}
+                maxLength={100}
+              />
+              <Text style={styles.helperText}>
+                Este será o nome do seu ministério
+              </Text>
+            </View>
           ) : (
-            <TextInput
-              placeholder="Código do Convite (ex: ABC123)"
-              placeholderTextColor="#999"
-              value={inviteCode}
-              onChangeText={setInviteCode}
-              autoCapitalize="characters"
-              editable={!loading}
-              style={styles.input}
-              maxLength={6}
-            />
+            <View>
+              <Text style={styles.label}>Código do Convite *</Text>
+              <TextInput
+                placeholder="Ex: ABC123"
+                placeholderTextColor="#999"
+                value={inviteCode}
+                onChangeText={(text) => setInviteCode(text.toUpperCase())}
+                autoCapitalize="characters"
+                editable={!loading}
+                style={styles.input}
+                maxLength={6}
+              />
+              <Text style={styles.helperText}>
+                Solicite o código a um administrador do ministério
+              </Text>
+            </View>
           )}
 
-          {/* Mensagem de erro */}
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {/* MENSAGEM DE ERRO */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>⚠️ {error}</Text>
+            </View>
+          )}
 
-          {/* Botão Cadastrar */}
+          {/* BOTÃO CADASTRAR */}
           <TouchableOpacity 
             onPress={onRegister}
             disabled={loading}
@@ -196,7 +295,7 @@ export default function Register() {
             )}
           </TouchableOpacity>
 
-          {/* Link Login */}
+          {/* LINK LOGIN */}
           <TouchableOpacity 
             onPress={() => router.back()} 
             disabled={loading}
@@ -248,6 +347,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3
   },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 6,
+    marginTop: spacing.md
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -257,6 +363,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     backgroundColor: colors.bg
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: -8,
+    marginBottom: spacing.md
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -282,11 +394,19 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: 'white'
   },
+  errorContainer: {
+    backgroundColor: '#fee',
+    borderWidth: 1,
+    borderColor: colors.error,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md
+  },
   errorText: {
     color: colors.error,
     fontSize: 14,
-    marginBottom: spacing.md,
-    fontWeight: '500'
+    fontWeight: '500',
+    lineHeight: 20
   },
   button: {
     backgroundColor: colors.olive,
