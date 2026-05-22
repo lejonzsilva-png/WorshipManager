@@ -50,7 +50,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ CORREÇÃO: Força o prefixo /api para casar exatamente com o client.ts do Frontend
 api = APIRouter(prefix="/api")
 
 def generate_invite_code() -> str:
+    """Gera um código único de 6 caracteres alfanuméricos para o ministério."""
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
+    """Extrai o ID do usuário real que vem no Token do Frontend."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token de autorização ausente ou inválido")
+    token = authorization.split(" ")[1]
+    return token
+
+# ==================== ROTAS DE AUTENTICAÇÃO ====================
+
+@api.post("/signup")
+async def signup(data: SignupSchema):
+    """Regista um novo utilizador real e cria ou vincula um ministério"""
+    existing_user = await db.users.find_one({"email": data.email.lower()})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Este e-mail já está cadastrado.")
+
+    user_id = str(uuid.uuid4())
+    ministry_id = None
+    role = "member"
+
+    if data.ministry_name and data.ministry_name.strip():
+        ministry_id = str(uuid.uuid4())
+        invite_code = generate_invite_code()
+        role = "leader"
+        
+        await db.ministries.insert_one({
+            "id": ministry_id,
+            "name": data
