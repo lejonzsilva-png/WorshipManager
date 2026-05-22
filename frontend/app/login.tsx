@@ -26,10 +26,10 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const res = await api("/login", {
-        method: "POST",
-        body: { email: email.trim().toLowerCase(), password },
-      });
+      const res = await api("/api/login", { // O endpoint deve incluir o prefixo se o router do backend for /api
+  method: "POST",
+  body: { email: email.toLowerCase(), password: password } // Campos minúsculos
+});
       if (res && res.token) {
         await setToken(res.token);
         if (res.user) setUser(res.user);
