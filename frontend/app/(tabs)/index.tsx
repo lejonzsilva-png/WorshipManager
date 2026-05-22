@@ -297,4 +297,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderStyle: "dashed",
   },
-  emptyText: { color: colors.textSecondary, fontSize: 14
+  emptyText: { color: colors.textSecondary, fontSize: 14 },
+});
