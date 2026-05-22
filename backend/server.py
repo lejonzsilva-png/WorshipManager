@@ -81,6 +81,147 @@ async def signup(data: SignupSchema):
         invite_code = generate_invite_code()
         role = "leader"
         
+        # ✅ CORREÇÃO: Dicionário e função fechados perfeitamente aqui
         await db.ministries.insert_one({
             "id": ministry_id,
-            "name": data
+            "name": data.ministry_name.strip(),
+            "invite_code": invite_code,
+            "created_by": user_id
+        })
+    elif data.invite_code and data.invite_code.strip():
+        ministry = await db.ministries.find_one({"invite_code": data.invite_code.upper().strip()})
+        if not ministry:
+            raise HTTPException(status_code=404, detail="Código de convite não encontrado.")
+        ministry_id = ministry["id"]
+        role = "member"
+    else:
+        raise HTTPException(status_code=400, detail="Informe um código de convite ou crie um ministério.")
+
+    avatar_colors = ["#FF6B6B", "#4D96FF", "#6BCB77", "#9B5DE5", "#F15BB5"]
+    new_user = {
+        "id": user_id,
+        "name": data.name.strip(),
+        "email": data.email.lower(),
+        "password": data.password,
+        "role": role,
+        "ministry_id": ministry_id,
+        "avatar_color": random.choice(avatar_colors)
+    }
+    
+    await db.users.insert_one(new_user)
+    current_ministry = await db.ministries.find_one({"id": ministry_id})
+
+    return {
+        "success": True,
+        "token": user_id,
+        "user": {
+            "id": new_user["id"],
+            "email": new_user["email"],
+            "name": new_user["name"],
+            "role": new_user["role"],
+            "avatar_color": new_user["avatar_color"]
+        },
+        "ministry": {
+            "id": current_ministry["id"],
+            "name": current_ministry["name"],
+            "invite_code": current_ministry["invite_code"]
+        }
+    }
+
+@api.post("/login")
+async def login(credentials: LoginSchema):
+    """Autentica o utilizador lendo os dados reais do MongoDB"""
+    user = await db.users.find_one({"email": credentials.email.lower(), "password": credentials.password})
+    if not user:
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+
+    ministry = await db.ministries.find_one({"id": user["ministry_id"]})
+
+    return {
+        "success": True,
+        "token": user["id"],
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"],
+            "avatar_color": user.get("avatar_color", "#FF6B6B")
+        },
+        "ministry": {
+            "id": ministry["id"] if ministry else "none",
+            "name": ministry["name"] if ministry else "Sem Ministério",
+            "invite_code": ministry["invite_code"] if ministry else ""
+        }
+    }
+
+# ==================== ROTAS DE SESSÃO DINÂMICA ====================
+
+@api.get("/auth/me")
+async def get_me(user_id: str = Depends(get_current_user_id)):
+    """Retorna os dados REAIS do utilizador autenticado vindos do Banco de Dados"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilizador não encontrado")
+    
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "role": user["role"],
+        "ministry_id": user["ministry_id"],
+        "avatar_color": user.get("avatar_color", "#FF6B6B")
+    }
+
+@api.get("/ministry")
+async def get_ministry(user_id: str = Depends(get_current_user_id)):
+    """Retorna os dados REAIS do ministério do utilizador vindos do Banco de Dados"""
+    user = await db.users.find_one({"id": user_id})
+    if not user or not user.get("ministry_id"):
+        raise HTTPException(status_code=404, detail="Ministério não associado a este utilizador")
+        
+    ministry = await db.ministries.find_one({"id": user["ministry_id"]})
+    if not ministry:
+        raise HTTPException(status_code=404, detail="Ministério não encontrado no banco")
+
+    return {
+        "id": ministry["id"],
+        "name": ministry["name"],
+        "invite_code": ministry["invite_code"],
+        "created_by": ministry.get("created_by")
+    }
+
+# ==================== ENDPOINTS DE SUPORTE AO DASHBOARD ====================
+
+@api.get("/stats")
+async def get_stats(user_id: str = Depends(get_current_user_id)):
+    user = await db.users.find_one({"id": user_id})
+    m_id = user["ministry_id"] if user else "none"
+    
+    members_count = await db.users.count_documents({"ministry_id": m_id})
+    songs_count = await db.songs.count_documents({"ministry_id": m_id}) if hasattr(db, 'songs') else 0
+    scales_count = await db.scales.count_documents({"ministry_id": m_id}) if hasattr(db, 'scales') else 0
+    
+    return {
+        "total_members": members_count,
+        "total_songs": songs_count,
+        "upcoming_scales": scales_count,
+        "total_announcements": 0
+    }
+
+@api.get("/scales")
+async def get_scales(user_id: str = Depends(get_current_user_id)):
+    return []
+
+@api.get("/announcements")
+async def get_announcements(user_id: str = Depends(get_current_user_id)):
+    return []
+
+app.include_router(api)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+@app.get("/")
+async def root():
+    return {"name": "LouvorApp API", "status": "running"}
