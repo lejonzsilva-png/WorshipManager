@@ -1,25 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://worshipmanageraapp.onrender.com';
+const TOKEN_KEY = '@WorshipManager:token';
 
-// Exportação explícita para resolver o erro "not a function"
+// Exportação explícita para ser importada no login.tsx
 export const setToken = async (token: string) => {
-  await AsyncStorage.setItem('@WorshipManager:token', token);
+  await AsyncStorage.setItem(TOKEN_KEY, token);
 };
 
 export const getToken = async () => {
-  return await AsyncStorage.getItem('@WorshipManager:token');
+  return await AsyncStorage.getItem(TOKEN_KEY);
 };
 
 export const api = async (endpoint: string, options: any = {}) => {
   try {
     const token = await getToken();
-    
-    // Garante prefixo /api
     const fullEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     const fullUrl = `${API_URL}${fullEndpoint}`;
-
-    console.log(`📡 Chamando: ${fullUrl}`);
 
     const config: RequestInit = {
       method: options.method || 'GET',
