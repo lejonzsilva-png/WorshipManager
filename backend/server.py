@@ -1,18 +1,16 @@
 """LouvorApp - Worship Ministry Management API."""
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 import os
-import random
-import string
 import uuid
 import jwt
 import bcrypt
 from typing import Optional
 from dotenv import load_dotenv
-from datetime import datetime, timezone, timedelta # Adicionado timedelta
+from datetime import datetime, timezone, timedelta
 
 # ==================== CONFIG ====================
 ROOT_DIR = Path(__file__).parent
@@ -21,10 +19,9 @@ load_dotenv(ROOT_DIR / ".env")
 MONGO_URL = os.getenv("MONGO_URL")
 DB_NAME = os.getenv("DB_NAME", "worshipmanager")
 JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
 
 if not MONGO_URL or not JWT_SECRET:
-    raise ValueError("ERRO: MONGO_URL e JWT_SECRET são obrigatórios no .env!")
+    raise ValueError("ERRO: Variáveis de ambiente faltando!")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -57,11 +54,8 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def create_jwt(user_id: str) -> str:
-    payload = {
-        "sub": user_id,
-        "exp": datetime.now(timezone.utc) + timedelta(days=7)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    payload = {"sub": user_id, "exp": datetime.now(timezone.utc) + timedelta(days=7)}
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 # ==================== ROTAS ====================
 
@@ -69,7 +63,7 @@ def create_jwt(user_id: str) -> str:
 async def signup(data: SignupSchema):
     existing = await db.users.find_one({"email": data.email.lower()})
     if existing:
-        raise HTTPException(400, "E-mail já cadastrado.")
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado.")
     
     user_id = str(uuid.uuid4())
     await db.users.insert_one({
@@ -77,15 +71,15 @@ async def signup(data: SignupSchema):
         "name": data.name,
         "email": data.email.lower(),
         "password": hash_password(data.password),
-        "ministry_id": "temp_id" # Ajustar lógica de ministério conforme necessidade
+        "ministry_id": "temp_id"
     })
-    return {"success": True, "user_id": user_id}
+    return {"success": True}
 
 @api.post("/login")
 async def login(data: LoginSchema):
     user = await db.users.find_one({"email": data.email.lower()})
     if not user or not bcrypt.checkpw(data.password.encode(), user["password"].encode()):
-        raise HTTPException(401, "E-mail ou senha incorretos.")
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
         
     token = create_jwt(user["id"])
     return {"success": True, "token": token}
