@@ -1,6 +1,7 @@
 import { storage } from "@/src/utils/storage";
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://worshipmanageraapp.onrender.com";
+// Forçamos o link correto do backend diretamente para evitar falhas de leitura na Web do Render
+const BASE_URL = "https://worshipmanageraapp.onrender.com";
 const TOKEN_KEY = "louvor_token";
 
 export async function getToken(): Promise<string | null> {
@@ -31,10 +32,8 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   
-  // ✅ CORREÇÃO: Adiciona /api ao path
-  // /login -> /api/login
-  // /auth/me -> /api/auth/me
-  const fullPath = `/api${path}`;
+  // REMOVIDO o prefixo /api para alinhar perfeitamente com o server.py atual
+  const fullPath = path;
   
   const res = await fetch(`${BASE_URL}${fullPath}`, {
     method,
