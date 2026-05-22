@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../api/client';
+import { api, setToken } from '../api/client';
 
 type User = {
   id: string;
@@ -33,7 +33,7 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ministry, setMinistry] = useState<Ministry | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,83 +47,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedMinistry = await AsyncStorage.getItem('@WorshipManager:ministry');
 
       if (storedToken && storedUser) {
-        setToken(storedToken);
+        setTokenState(storedToken);
         setUser(JSON.parse(storedUser));
         if (storedMinistry) setMinistry(JSON.parse(storedMinistry));
       }
     } catch (e) {
-      console.log('Erro ao carregar dados salvos');
+      console.log('❌ Erro ao carregar dados salvos:', e);
     } finally {
       setLoading(false);
     }
   }
 
+  // ✅ CORRIGIDO: Usar interface correta de api()
   async function login(email: string, password: string) {
-  try {
-    const response = await api.post('/login', { email, password });
-    
-    if (response.success) {
-      await AsyncStorage.multiSet([
-        ['@WorshipManager:token', response.token],
-        ['@WorshipManager:user', JSON.stringify(response.user)],
-        ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
-      ]);
+    try {
+      const response = await api('/login', {
+        method: 'POST',
+        body: { email, password }
+      });
+      
+      if (response.success && response.token) {
+        await AsyncStorage.multiSet([
+          ['@WorshipManager:token', response.token],
+          ['@WorshipManager:user', JSON.stringify(response.user)],
+          ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
+        ]);
 
-      setToken(response.token);
-      setUser(response.user);
-      setMinistry(response.ministry);
+        setToken(response.token);
+        setTokenState(response.token);
+        setUser(response.user);
+        setMinistry(response.ministry);
+      } else {
+        throw new Error(response.detail || 'Erro ao fazer login');
+      }
+    } catch (error: any) {
+      console.error('❌ Erro no login:', error);
+      throw new Error(error.message || 'Erro ao fazer login');
     }
-  } catch (error: any) {
-    throw new Error(error.message || 'Erro ao fazer login');
   }
-}
 
-async function signup(data: any) {
-  try {
-    const response = await api.post('/signup', data);
-    
-    if (response.success) {
-      await AsyncStorage.multiSet([
-        ['@WorshipManager:token', response.token],
-        ['@WorshipManager:user', JSON.stringify(response.user)],
-        ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
-      ]);
-
-      setToken(response.token);
-      setUser(response.user);
-      setMinistry(response.ministry);
-    }
-  } catch (error: any) {
-    throw new Error(error.message || 'Erro ao cadastrar');
-  }
-}
+  // ✅ CORRIGIDO: Remover duplicata, usar interface correta
   async function signup(data: any) {
-    const response = await api.post('/signup', data);
-    
-    if (response.success) {
-      await AsyncStorage.multiSet([
-        ['@WorshipManager:token', response.token],
-        ['@WorshipManager:user', JSON.stringify(response.user)],
-        ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
-      ]);
+    try {
+      const response = await api('/signup', {
+        method: 'POST',
+        body: data
+      });
+      
+      if (response.success && response.token) {
+        await AsyncStorage.multiSet([
+          ['@WorshipManager:token', response.token],
+          ['@WorshipManager:user', JSON.stringify(response.user)],
+          ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
+        ]);
 
-      setToken(response.token);
-      setUser(response.user);
-      setMinistry(response.ministry);
-    } else {
-      throw new Error(response.detail || 'Erro ao cadastrar');
+        setToken(response.token);
+        setTokenState(response.token);
+        setUser(response.user);
+        setMinistry(response.ministry);
+      } else {
+        throw new Error(response.detail || 'Erro ao cadastrar');
+      }
+    } catch (error: any) {
+      console.error('❌ Erro no signup:', error);
+      throw new Error(error.message || 'Erro ao cadastrar');
     }
   }
 
   async function logout() {
-    await AsyncStorage.multiRemove([
-      '@WorshipManager:token',
-      '@WorshipManager:user',
-      '@WorshipManager:ministry'
-    ]);
-    setToken(null);
-    setUser(null);
-    setMinistry(null);
+    try {
+      await AsyncStorage.multiRemove([
+        '@WorshipManager:token',
+        '@WorshipManager:user',
+        '@WorshipManager:ministry'
+      ]);
+      setToken(null);
+      setTokenState(null);
+      setUser(null);
+      setMinistry(null);
+    } catch (error: any) {
+      console.error('❌ Erro no logout:', error);
+    }
+  }
+
+  // ✅ CORRIGIDO: Adicionar função auxiliar para setToken (usada por login.tsx)
+  async function setTokenExternal(newToken: string) {
+    await setToken(newToken);
+    setTokenState(newToken);
   }
 
   return (
@@ -144,5 +154,8 @@ async function signup(data: any) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth deve ser usado dentro de AuthProvider');
+  }
   return context;
 }
