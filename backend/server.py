@@ -19,10 +19,18 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-app = FastAPI()
-api = APIRouter(prefix="/api")
+app = FastAPI(title="LouvorApp API")
 
-# Schemas no topo (NUNCA dentro de rotas)
+# CORSMiddleware DEVE ser o primeiro a ser adicionado
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Permitir todas as origens para resolver o erro CORS
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# SCHEMAS DEFINIDOS NO TOPO (Fora das rotas)
 class SignupSchema(BaseModel):
     name: str
     email: EmailStr
@@ -32,17 +40,40 @@ class LoginSchema(BaseModel):
     email: EmailStr
     password: str
 
+# Router
+api = APIRouter(prefix="/api")
+
 # Rotas
 @api.post("/signup")
 async def signup(data: SignupSchema):
-    # Lógica de signup
+    # Lógica de signup corrigida
+    existing = await db.users.find_one({"email": data.email.lower()})
+    if existing:
+        raise HTTPException(400, "E-mail já cadastrado.")
+    
+    await db.users.insert_one({
+        "id": str(uuid.uuid4()),
+        "name": data.name,
+        "email": data.email.lower(),
+        "password": bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+    })
     return {"success": True}
 
 @api.post("/login")
 async def login(data: LoginSchema):
     user = await db.users.find_one({"email": data.email.lower()})
     if not user or not bcrypt.checkpw(data.password.encode(), user["password"].encode()):
-        raise HTTPException(401, "Credenciais inválidas")
-    return {"success": True}
+        raise HTTPException(401, "E-mail ou senha incorretos.")
+    
+    # Criar token
+    token = jwt.encode(
+        {"sub": user["id"], "exp": datetime.now(timezone.utc) + timedelta(days=7)},
+        JWT_SECRET, algorithm="HS256"
+    )
+    return {"success": True, "token": token}
 
 app.include_router(api)
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
