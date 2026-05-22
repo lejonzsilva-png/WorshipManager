@@ -7,211 +7,239 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/src/context/AuthContext";
+import { api, setToken } from "@/src/api/client";
 import { colors, radius, spacing } from "@/src/theme";
 
 export default function Register() {
   const router = useRouter();
-  const { signUp } = useAuth();
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const { setUser, setMinistry, refreshSession } = useAuth();
+  
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ministryName, setMinistryName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [isJoining, setIsJoining] = useState(true); // Alterna entre entrar com código ou criar novo ministério
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async () => {
+  const onRegister = async () => {
     setError(null);
+    
     if (!name.trim() || !email.trim() || !password) {
-      setError("Preencha nome, e-mail e senha");
+      setError("Preencha todos os campos obrigatórios (Nome, E-mail e Senha)");
       return;
     }
-    if (password.length < 6) {
-      setError("Senha precisa ter ao menos 6 caracteres");
+
+    if (isJoining && !inviteCode.trim()) {
+      setError("Introduza o código de convite do seu ministério");
       return;
     }
-    if (mode === "join" && !inviteCode.trim()) {
-      setError("Informe o código de convite");
+
+    if (!isJoining && !ministryName.trim()) {
+      setError("Introduza o nome do novo ministério a criar");
       return;
     }
+
     setLoading(true);
     try {
-      await signUp({
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password,
-        ministry_name: mode === "create" ? ministryName.trim() || undefined : undefined,
-        invite_code: mode === "join" ? inviteCode.trim().toUpperCase() : undefined,
+      // ✅ CORREÇÃO: Faz o pedido diretamente à API eliminando chamadas ao contexto inexistentes
+      const res = await api("/signup", {
+        method: "POST",
+        body: {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          ministry_name: isJoining ? undefined : ministryName.trim(),
+          invite_code: isJoining ? inviteCode.trim().toUpperCase() : undefined,
+        },
+        auth: false,
       });
-      router.replace("/(tabs)");
+
+      if (res && res.token) {
+        // Grava o token gerado
+        await setToken(res.token);
+        
+        // Alimenta os estados globais se retornados
+        if (res.user) setUser(res.user);
+        if (res.ministry) setMinistry(res.ministry);
+        
+        // Atualiza a sessão e vai para o Dashboard
+        await refreshSession();
+        
+        setTimeout(() => {
+          router.replace("/(tabs)");
+        }, 100);
+      } else {
+        setError("Resposta inválida do servidor ao criar conta");
+      }
     } catch (e: any) {
-      setError(e.message || "Erro ao criar conta");
+      setError(e.message || "Erro ao criar conta. Verifique os dados.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-      testID="register-screen"
-    >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} testID="register-back">
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Criar conta</Text>
-        <Text style={styles.subtitle}>Bem-vindo ao LouvorApp</Text>
-
-        <View style={styles.segment}>
-          <TouchableOpacity
-            testID="mode-create"
-            style={[styles.segItem, mode === "create" && styles.segActive]}
-            onPress={() => setMode("create")}
-          >
-            <Text style={[styles.segText, mode === "create" && styles.segTextActive]}>
-              Criar ministério
-            </Text>
+    <View style={styles.bg} testID="register-screen">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity
-            testID="mode-join"
-            style={[styles.segItem, mode === "join" && styles.segActive]}
-            onPress={() => setMode("join")}
-          >
-            <Text style={[styles.segText, mode === "join" && styles.segTextActive]}>
-              Entrar com convite
-            </Text>
-          </TouchableOpacity>
-        </View>
 
-        <Text style={styles.label}>Nome completo</Text>
-        <TextInput
-          testID="register-name"
-          style={styles.input}
-          placeholder="João da Silva"
-          placeholderTextColor={colors.textDisabled}
-          value={name}
-          onChangeText={setName}
-        />
+          <View style={styles.brandWrap}>
+            <Text style={styles.brand}>Criar Conta</Text>
+            <Text style={styles.tag}>Junte-se ou crie um ministério de louvor</Text>
+          </View>
 
-        <Text style={styles.label}>E-mail</Text>
-        <TextInput
-          testID="register-email"
-          style={styles.input}
-          placeholder="seu@email.com"
-          placeholderTextColor={colors.textDisabled}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <Text style={styles.label}>Senha (mín. 6 caracteres)</Text>
-        <TextInput
-          testID="register-password"
-          style={styles.input}
-          placeholder="••••••••"
-          placeholderTextColor={colors.textDisabled}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        {mode === "create" ? (
-          <>
-            <Text style={styles.label}>Nome do ministério (opcional)</Text>
+          <View style={styles.card}>
+            <Text style={styles.label}>Nome Completo *</Text>
             <TextInput
-              testID="register-ministry-name"
               style={styles.input}
-              placeholder="Ministério de Louvor IBC"
+              placeholder="O seu nome"
               placeholderTextColor={colors.textDisabled}
-              value={ministryName}
-              onChangeText={setMinistryName}
+              value={name}
+              onChangeText={setName}
             />
-            <Text style={styles.helper}>
-              Você será o líder. Use o código gerado para convidar outros.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>Código de convite</Text>
+
+            <Text style={styles.label}>E-mail *</Text>
             <TextInput
-              testID="register-invite-code"
-              style={[styles.input, { letterSpacing: 4, fontWeight: "600" }]}
-              placeholder="ABC123"
+              style={styles.input}
+              placeholder="seu@email.com"
               placeholderTextColor={colors.textDisabled}
-              autoCapitalize="characters"
-              value={inviteCode}
-              onChangeText={(v) => setInviteCode(v.toUpperCase())}
-              maxLength={6}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
             />
-          </>
-        )}
 
-        {error && (
-          <Text style={styles.error} testID="register-error">
-            {error}
-          </Text>
-        )}
+            <Text style={styles.label}>Senha *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Mínimo 6 caracteres"
+              placeholderTextColor={colors.textDisabled}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
 
-        <TouchableOpacity
-          testID="register-submit"
-          style={[styles.btnPrimary, loading && { opacity: 0.6 }]}
-          onPress={onSubmit}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Criar conta</Text>}
-        </TouchableOpacity>
+            {/* Toggle de Modo: Código de Convite VS Novo Ministério */}
+            <View style={styles.toggleRow}>
+              <TouchableOpacity 
+                style={[styles.toggleTab, isJoining && styles.toggleTabActive]} 
+                onPress={() => { setIsJoining(true); setError(null); }}
+              >
+                <Text style={[styles.toggleTabText, isJoining && styles.toggleTabTextActive]}>Tenho Código</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleTab, !isJoining && styles.toggleTabActive]} 
+                onPress={() => { setIsJoining(false); setError(null); }}
+              >
+                <Text style={[styles.toggleTabText, !isJoining && styles.toggleTabTextActive]}>Novo Ministério</Text>
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity style={styles.linkBtn} onPress={() => router.replace("/login")} testID="go-login">
-          <Text style={styles.linkText}>
-            Já tem conta? <Text style={styles.linkBold}>Entrar</Text>
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            {isJoining ? (
+              <View>
+                <Text style={styles.label}>Código de Convite *</Text>
+                <TextInput
+                  style={[styles.input, styles.codeInput]}
+                  placeholder="EX: ABC123"
+                  placeholderTextColor={colors.textDisabled}
+                  autoCapitalize="characters"
+                  maxLength={6}
+                  value={inviteCode}
+                  onChangeText={setInviteCode}
+                />
+                <Text style={styles.inputHelp}>Solicite o código de 6 dígitos ao líder do seu ministério.</Text>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.label}>Nome do Ministério *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ex: Ministério de Louvor Central"
+                  placeholderTextColor={colors.textDisabled}
+                  value={ministryName}
+                  onChangeText={setMinistryName}
+                />
+              </View>
+            )}
+
+            {error && (
+              <Text style={styles.error}>
+                {error}
+              </Text>
+            )}
+
+            <TouchableOpacity
+              style={[styles.btnPrimary, loading && { opacity: 0.6 }]}
+              onPress={onRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.btnPrimaryText}>Concluir Cadastro</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.linkBtn} onPress={() => router.push("/login")}>
+              <Text style={styles.linkText}>
+                Já tem uma conta? <Text style={styles.linkBold}>Fazer Login</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: spacing.lg, paddingTop: 70, paddingBottom: 40 },
-  backBtn: { width: 40, height: 40, justifyContent: "center", marginBottom: 8 },
-  title: { fontSize: 28, fontWeight: "600", color: colors.text },
-  subtitle: { fontSize: 15, color: colors.textSecondary, marginBottom: spacing.lg },
-  segment: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceElevated,
-    padding: 4,
-    borderRadius: radius.full,
-    marginBottom: spacing.lg,
-  },
-  segItem: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: radius.full },
-  segActive: { backgroundColor: colors.surface, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4 },
-  segText: { color: colors.textSecondary, fontSize: 13, fontWeight: "500" },
-  segTextActive: { color: colors.olive, fontWeight: "600" },
-  label: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: 6 },
-  input: {
+  flex: { flex: 1 },
+  bg: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.lg, paddingTop: 60 },
+  backBtn: { position: "absolute", top: 50, left: spacing.lg, zIndex: 10, padding: 4 },
+  brandWrap: { alignItems: "center", marginBottom: spacing.xl },
+  brand: { color: colors.text, fontSize: 28, fontWeight: "600", letterSpacing: -0.5 },
+  tag: { color: colors.textSecondary, fontSize: 14, marginTop: 4, textAlign: "center" },
+  card: {
     backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  label: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: 4 },
+  input: {
+    backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     fontSize: 16,
     color: colors.text,
   },
-  helper: { fontSize: 12, color: colors.textSecondary, marginTop: 6 },
-  error: { color: colors.error, marginTop: 12, fontSize: 13 },
+  codeInput: { textAlign: "center", fontWeight: "700", fontSize: 18, letterSpacing: 2, color: colors.olive },
+  inputHelp: { fontSize: 11, color: colors.textSecondary, marginTop: 4, paddingHorizontal: 4 },
+  toggleRow: { flexDirection: "row", backgroundColor: colors.bg, borderRadius: radius.md, padding: 4, marginTop: spacing.md, marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.border },
+  toggleTab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: radius.sm },
+  toggleTabActive: { backgroundColor: colors.surface, ...shadow.sm },
+  toggleTabText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
+  toggleTabTextActive: { color: colors.olive, fontWeight: "600" },
+  error: { color: colors.error, marginTop: 12, fontSize: 13, fontWeight: "500" },
   btnPrimary: {
     backgroundColor: colors.olive,
     borderRadius: radius.full,
@@ -220,7 +248,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   btnPrimaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  linkBtn: { marginTop: spacing.md, alignItems: "center", padding: 8 },
+  linkBtn: { marginTop: spacing.md, alignItems: "center" },
   linkText: { color: colors.textSecondary, fontSize: 14 },
   linkBold: { color: colors.olive, fontWeight: "600" },
 });
