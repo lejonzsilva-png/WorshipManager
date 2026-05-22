@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL 
-  ? `${process.env.EXPO_PUBLIC_BACKEND_URL}/api` 
-  : 'https://worshipmanager-api.onrender.com/api'; // ajuste depois
+const API_URL = 'https://worshipmanageraapp.onrender.com/api';
 
 export const api = {
   async post(endpoint: string, data: any) {
@@ -17,13 +15,12 @@ export const api = {
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
-    
     if (!response.ok) {
-      throw new Error(result.detail || 'Erro na requisição');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Erro na requisição');
     }
     
-    return result;
+    return await response.json();
   },
 
   async get(endpoint: string) {
@@ -37,12 +34,11 @@ export const api = {
       },
     });
 
-    const result = await response.json();
-    
     if (!response.ok) {
-      throw new Error(result.detail || 'Erro na requisição');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Erro na requisição');
     }
     
-    return result;
+    return await response.json();
   }
 };

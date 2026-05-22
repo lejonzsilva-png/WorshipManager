@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(email: string, password: string) {
+  try {
     const response = await api.post('/login', { email, password });
     
     if (response.success) {
@@ -71,11 +72,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(response.token);
       setUser(response.user);
       setMinistry(response.ministry);
-    } else {
-      throw new Error(response.detail || 'Erro ao fazer login');
     }
+  } catch (error: any) {
+    throw new Error(error.message || 'Erro ao fazer login');
   }
+}
 
+async function signup(data: any) {
+  try {
+    const response = await api.post('/signup', data);
+    
+    if (response.success) {
+      await AsyncStorage.multiSet([
+        ['@WorshipManager:token', response.token],
+        ['@WorshipManager:user', JSON.stringify(response.user)],
+        ['@WorshipManager:ministry', JSON.stringify(response.ministry)]
+      ]);
+
+      setToken(response.token);
+      setUser(response.user);
+      setMinistry(response.ministry);
+    }
+  } catch (error: any) {
+    throw new Error(error.message || 'Erro ao cadastrar');
+  }
+}
   async function signup(data: any) {
     const response = await api.post('/signup', data);
     
