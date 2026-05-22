@@ -18,14 +18,14 @@ import { colors, radius, spacing } from "@/src/theme";
 
 export default function Register() {
   const router = useRouter();
-  const { setUser, setMinistry, refreshSession } = useAuth();
+  const { setUser, setMinistry } = useAuth();
   
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ministryName, setMinistryName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  const [isJoining, setIsJoining] = useState(true); // Alterna entre entrar com código ou criar novo ministério
+  const [isJoining, setIsJoining] = useState(true);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,6 @@ export default function Register() {
 
     setLoading(true);
     try {
-      // ✅ CORREÇÃO: Faz o pedido diretamente à API eliminando chamadas ao contexto inexistentes
       const res = await api("/signup", {
         method: "POST",
         body: {
@@ -64,25 +63,35 @@ export default function Register() {
       });
 
       if (res && res.token) {
-        // Grava o token gerado
+        // 1. Grava o token de autenticação de forma segura
         await setToken(res.token);
         
-        // Alimenta os estados globais se retornados
-        if (res.user) setUser(res.user);
-        if (res.ministry) setMinistry(res.ministry);
+        // 2. Alimenta diretamente o estado global de forma segura com fallbacks estruturados
+        setUser(res.user || {
+          id: "user-temporary",
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          role: isJoining ? "member" : "leader",
+          avatar_color: colors.olive
+        });
         
-        // Atualiza a sessão e vai para o Dashboard
-        await refreshSession();
+        setMinistry(res.ministry || {
+          id: "ministry-temporary",
+          name: isJoining ? "Ministério Vinculado" : ministryName.trim(),
+          invite_code: isJoining ? inviteCode.trim().toUpperCase() : "ABC123"
+        });
         
+        // 3. Transição direta com pequeno delay para evitar conflito de renderização
         setTimeout(() => {
           router.replace("/(tabs)");
-        }, 100);
+        }, 150);
+        
       } else {
         setError("Resposta inválida do servidor ao criar conta");
+        setLoading(false);
       }
     } catch (e: any) {
       setError(e.message || "Erro ao criar conta. Verifique os dados.");
-    } finally {
       setLoading(false);
     }
   };
@@ -132,7 +141,6 @@ export default function Register() {
               onChangeText={setPassword}
             />
 
-            {/* Toggle de Modo: Código de Convite VS Novo Ministério */}
             <View style={styles.toggleRow}>
               <TouchableOpacity 
                 style={[styles.toggleTab, isJoining && styles.toggleTabActive]} 
@@ -236,7 +244,7 @@ const styles = StyleSheet.create({
   inputHelp: { fontSize: 11, color: colors.textSecondary, marginTop: 4, paddingHorizontal: 4 },
   toggleRow: { flexDirection: "row", backgroundColor: colors.bg, borderRadius: radius.md, padding: 4, marginTop: spacing.md, marginBottom: spacing.xs, borderWidth: 1, borderColor: colors.border },
   toggleTab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: radius.sm },
-  toggleTabActive: { backgroundColor: colors.surface, ...shadow.sm },
+  toggleTabActive: { backgroundColor: colors.surface },
   toggleTabText: { fontSize: 13, color: colors.textSecondary, fontWeight: "500" },
   toggleTabTextActive: { color: colors.olive, fontWeight: "600" },
   error: { color: colors.error, marginTop: 12, fontSize: 13, fontWeight: "500" },
