@@ -10,6 +10,9 @@ import string
 import uuid
 from typing import Optional
 
+# ==================== CORREÇÃO: IMPORTAÇÃO DO DOTENV ====================
+from dotenv import load_dotenv
+
 # ==================== SCHEMAS (Modelos de Dados) ====================
 class LoginSchema(BaseModel):
     email: EmailStr
