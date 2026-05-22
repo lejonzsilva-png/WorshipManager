@@ -40,13 +40,16 @@ app = FastAPI(title="LouvorApp API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://worshipmanager-2jqw.onrender.com", 
+        "https://worshipmanager-2jqw.onrender.com",   # Seu frontend atual
         "http://localhost:8081",
-        "*"
+        "http://localhost:3000",
+        "https://worshipmanageraapp.onrender.com",
+        "*"  # Temporário para teste
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 api = APIRouter(prefix="/api")
 
