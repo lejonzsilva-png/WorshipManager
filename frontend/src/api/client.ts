@@ -32,8 +32,8 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   
-  // REMOVIDO o prefixo /api para alinhar perfeitamente com o server.py atual
-  const fullPath = path;
+  // CORREÇÃO: Adiciona o prefixo /api automaticamente se ainda não existir
+  const fullPath = path.startsWith("/api") ? path : `/api${path}`;
   
   const res = await fetch(`${BASE_URL}${fullPath}`, {
     method,
