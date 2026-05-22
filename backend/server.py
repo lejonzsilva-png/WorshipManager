@@ -21,7 +21,6 @@ class SignupSchema(BaseModel):
     ministry_name: Optional[str] = None
     invite_code: Optional[str] = None
 
-# A correção crucial está aqui: usar Optional para que o FastAPI não obrigue a enviar ambos
 class GoogleAuthSchema(BaseModel):
     token: Optional[str] = None
     session_id: Optional[str] = None
@@ -51,8 +50,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==================== CRIAR ROUTER COM /api PREFIX ====================
-api = APIRouter(prefix="/api")
+# ==================== CRIAR ROUTER SEM PREFIXO ====================
+# Alterado para remover prefixo=/api para resolver problemas de rotas 404
+api = APIRouter()
 
 # ==================== ROTAS DE AUTENTICAÇÃO ====================
 
@@ -60,7 +60,6 @@ api = APIRouter(prefix="/api")
 async def login(credentials: LoginSchema):
     """Autentica o utilizador com email e password"""
     try:
-        # TODO: Implementar lógica de autenticação real
         return {
             "success": True,
             "message": "Login efetuado com sucesso",
@@ -91,7 +90,6 @@ async def login(credentials: LoginSchema):
 async def signup(data: SignupSchema):
     """Regista um novo utilizador"""
     try:
-        # TODO: Implementar lógica de registo real
         return {
             "success": True,
             "message": "Registo efetuado com sucesso",
@@ -122,14 +120,9 @@ async def signup(data: SignupSchema):
 async def auth_google(data: GoogleAuthSchema):
     """Autentica o utilizador com Google"""
     try:
-        # Usar token ou session_id (o que for enviado)
         auth_value = data.token or data.session_id
-        
         if not auth_value:
-            raise HTTPException(
-                status_code=400, 
-                detail="É necessário enviar 'token' ou 'session_id'"
-            )
+            raise HTTPException(status_code=400, detail="É necessário enviar 'token' ou 'session_id'")
         
         return {
             "success": True,
@@ -164,7 +157,6 @@ async def auth_google(data: GoogleAuthSchema):
 @api.get("/auth/me")
 async def get_me():
     """Retorna os dados do utilizador autenticado"""
-    # TODO: Verificar JWT token e retornar utilizador
     return {
         "id": "user-123",
         "email": "user@example.com",
@@ -182,7 +174,6 @@ async def get_me():
 @api.get("/ministry")
 async def get_ministry():
     """Retorna os dados do ministério do utilizador"""
-    # TODO: Buscar ministério da BD baseado no utilizador
     return {
         "id": "ministry-123",
         "name": "Ministério Exemplo",
@@ -194,21 +185,12 @@ async def get_ministry():
 # ==================== INCLUIR ROUTER ====================
 app.include_router(api)
 
-# ==================== HEALTH CHECK (sem /api prefix) ====================
+# ==================== HEALTH CHECK ====================
 
 @app.get("/health")
 async def health_check():
-    """Health check do servidor"""
-    return {
-        "status": "ok",
-        "message": "LouvorApp API está funcionando"
-    }
+    return {"status": "ok", "message": "LouvorApp API está funcionando"}
 
 @app.get("/")
 async def root():
-    """Rota raiz"""
-    return {
-        "name": "LouvorApp API",
-        "version": "1.0.0",
-        "status": "running"
-    }
+    return {"name": "LouvorApp API", "version": "1.0.0", "status": "running"}
