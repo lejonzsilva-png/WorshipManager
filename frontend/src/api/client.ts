@@ -1,42 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://worshipmanageraapp.onrender.com';
-const TOKEN_KEY = '@WorshipManager:token';
 
-// Exportação explícita para ser importada no login.tsx
 export const setToken = async (token: string) => {
-  await AsyncStorage.setItem(TOKEN_KEY, token);
-};
-
-export const getToken = async () => {
-  return await AsyncStorage.getItem(TOKEN_KEY);
+  await AsyncStorage.setItem('@WorshipManager:token', token);
 };
 
 export const api = async (endpoint: string, options: any = {}) => {
-  try {
-    const token = await getToken();
-    const fullEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-    const fullUrl = `${API_URL}${fullEndpoint}`;
+  const token = await AsyncStorage.getItem('@WorshipManager:token');
+  const fullUrl = `${API_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
-    const config: RequestInit = {
-      method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    };
+  const response = await fetch(fullUrl, {
+    method: options.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
 
-    const response = await fetch(fullUrl, config);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `Erro ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error("❌ API Error:", error.message);
-    throw error;
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Erro ${response.status}`);
   }
+
+  return await response.json();
 };
