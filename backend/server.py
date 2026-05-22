@@ -21,10 +21,10 @@ db = client[DB_NAME]
 
 app = FastAPI(title="LouvorApp API")
 
-# CORSMiddleware DEVE ser o primeiro a ser adicionado
+# CORSMiddleware configurado para permitir o frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Permitir todas as origens para resolver o erro CORS
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -35,18 +35,17 @@ class SignupSchema(BaseModel):
     name: str
     email: EmailStr
     password: str
+    ministry_name: str = "Ministério Sem Nome"
 
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
 
-# Router
 api = APIRouter(prefix="/api")
 
 # Rotas
 @api.post("/signup")
 async def signup(data: SignupSchema):
-    # Lógica de signup corrigida
     existing = await db.users.find_one({"email": data.email.lower()})
     if existing:
         raise HTTPException(400, "E-mail já cadastrado.")
@@ -65,7 +64,6 @@ async def login(data: LoginSchema):
     if not user or not bcrypt.checkpw(data.password.encode(), user["password"].encode()):
         raise HTTPException(401, "E-mail ou senha incorretos.")
     
-    # Criar token
     token = jwt.encode(
         {"sub": user["id"], "exp": datetime.now(timezone.utc) + timedelta(days=7)},
         JWT_SECRET, algorithm="HS256"
@@ -76,4 +74,4 @@ app.include_router(api)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
