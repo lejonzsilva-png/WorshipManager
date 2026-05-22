@@ -35,6 +35,8 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
   // CORREÇÃO: Adiciona o prefixo /api automaticamente se ainda não existir
   const fullPath = path.startsWith("/api") ? path : `/api${path}`;
   
+  // ... (código anterior igual)
+  
   const res = await fetch(`${BASE_URL}${fullPath}`, {
     method,
     headers,
@@ -45,6 +47,10 @@ export async function api<T = any>(path: string, opts: ReqOptions = {}): Promise
   const data = text ? JSON.parse(text) : null;
   
   if (!res.ok) {
+    // SE O ERRO FOR 401 ou 404, A SESSÃO É INVÁLIDA: LIMPA O TOKEN
+    if (res.status === 401 || res.status === 404) {
+      await clearToken();
+    }
     const msg = data?.detail || data?.message || "Erro de conexão";
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
   }

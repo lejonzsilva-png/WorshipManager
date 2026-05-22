@@ -158,9 +158,10 @@ async def login(credentials: LoginSchema):
 
 @api.get("/auth/me")
 async def get_me(user_id: str = Depends(get_current_user_id)):
-    """Retorna os dados REAIS do utilizador autenticado vindos do Banco de Dados"""
+    """Retorna dados reais ou erro 404 claro"""
     user = await db.users.find_one({"id": user_id})
     if not user:
+        # Se o token for inválido, o 404 diz ao frontend: 'limpa o token e vai para o login'
         raise HTTPException(status_code=404, detail="Utilizador não encontrado")
     
     return {
