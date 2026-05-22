@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth, usePermissions } from "@/src/context/AuthContext";
+import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/api/client";
 import { colors, radius, spacing, shadow, formatDateBR, formatDayName } from "@/src/theme";
 
@@ -42,193 +42,176 @@ type Stats = {
 export default function Dashboard() {
   const router = useRouter();
   const { user, ministry } = useAuth();
-  const { isLeader, canEditScales, canEditSongs, canEditAnnouncements } = usePermissions();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [nextScale, setNextScale] = useState<Scale | null>(null);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  
+  // Lógica de permissões baseada no role do utilizador
+  const isLeader = user?.role === "leader" || user?.role === "admin";
+  const canEditScales = isLeader || user?.role === "operator";
+  const canEditRepertoire = isLeader || user?.role === "musician";
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<Stats>({
+    total_members: 0,
+    total_songs: 0,
+    upcoming_scales: 0,
+    total_announcements: 0,
+  });
+  const [nextScale, setNextScale] = useState<Scale | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
-  const load = useCallback(async () => {
+  const loadDashboardData = async () => {
     try {
-      const [s, scales, anns] = await Promise.all([
-        api<Stats>("/stats"),
-        api<Scale[]>("/scales"),
-        api<Announcement[]>("/announcements"),
+      const [statsData, scalesData, annData] = await Promise.all([
+        api<Stats>("/dashboard/stats"),
+        api<Scale[]>("/scales?limit=1"),
+        api<Announcement[]>("/announcements?limit=2"),
       ]);
-      setStats(s);
-      const today = new Date().toISOString().split("T")[0];
-      const upcoming = scales.find((sc) => sc.date >= today);
-      setNextScale(upcoming || null);
-      setAnnouncements(anns.slice(0, 3));
-    } catch {
+
+      if (statsData) setStats(statsData);
+      if (scalesData && scalesData.length > 0) setNextScale(scalesData[0]);
+      if (annData) setAnnouncements(annData);
+    } catch (e) {
+      console.error("Erro ao carregar dados do dashboard", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      loadDashboardData();
+    }, [])
   );
 
-  const initials = user?.name?.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "U";
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator color={colors.olive} />
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.olive} />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} testID="dashboard-screen" edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.olive} />}
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Olá, {user?.name?.split(" ")[0]}</Text>
-            <Text style={styles.ministry}>{ministry?.name}</Text>
+          <View>
+            <Text style={styles.welcome}>Olá, {user?.name || "Utilizador"}</Text>
+            <Text style={styles.ministryName}>{ministry?.name || "Nenhum ministério vinculado"}</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.avatar, { backgroundColor: user?.avatar_color || colors.olive }]}
-            onPress={() => router.push("/(tabs)/perfil")}
-            testID="dashboard-avatar"
-          >
-            <Text style={styles.avatarText}>{initials}</Text>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push("/profile")}>
+            <Ionicons name="person-circle-outline" size={36} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Next Scale Hero */}
-        <Text style={styles.sectionLabel}>PRÓXIMA ESCALA</Text>
-        {nextScale ? (
-          <TouchableOpacity
-            style={styles.heroCard}
-            onPress={() => router.push(`/escala/${nextScale.id}`)}
-            testID="dashboard-next-scale"
-          >
-            <View style={styles.heroTop}>
-              <View>
-                <Text style={styles.heroDay}>{formatDayName(nextScale.date)}</Text>
-                <Text style={styles.heroDate}>{formatDateBR(nextScale.date)} • {nextScale.time}</Text>
-              </View>
-              <View style={styles.heroBadge}>
-                <Ionicons name="calendar" size={20} color={colors.gold} />
-              </View>
-            </View>
-            <Text style={styles.heroTitle}>{nextScale.title}</Text>
-            {nextScale.location ? <Text style={styles.heroLocation}>📍 {nextScale.location}</Text> : null}
-            <View style={styles.heroFooter}>
-              <Text style={styles.heroFooterText}>
-                {nextScale.assignments.length} {nextScale.assignments.length === 1 ? "músico" : "músicos"}
-              </Text>
-              <Text style={styles.heroLink}>Ver detalhes →</Text>
-            </View>
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push("/membros")}>
+            <Ionicons name="people" size={24} color={colors.olive} />
+            <Text style={styles.statValue}>{stats.total_members}</Text>
+            <Text style={styles.statLabel}>Integrantes</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.emptyCard}>
-            <Ionicons name="calendar-outline" size={32} color={colors.textDisabled} />
-            <Text style={styles.emptyText}>Nenhuma escala futura</Text>
-            <TouchableOpacity onPress={() => router.push("/escala/nova")} testID="empty-create-scale">
-              <Text style={styles.linkBold}>Criar primeira escala</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
-        {/* Quick Stats */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/membros")}
-            testID="stat-members"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="people" size={20} color={colors.olive} />
-            <Text style={styles.statValue}>{stats?.total_members || 0}</Text>
-            <Text style={styles.statLabel}>Membros</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/(tabs)/repertorio")}
-            testID="stat-songs"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="musical-notes" size={20} color={colors.terracotta} />
-            <Text style={styles.statValue}>{stats?.total_songs || 0}</Text>
+          <TouchableOpacity style={styles.statCard} onPress={() => router.push("/repertorio")}>
+            <Ionicons name="musical-notes" size={24} color={colors.olive} />
+            <Text style={styles.statValue}>{stats.total_songs}</Text>
             <Text style={styles.statLabel}>Músicas</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/(tabs)/escalas")}
-            testID="stat-scales"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar" size={20} color={colors.info} />
-            <Text style={styles.statValue}>{stats?.upcoming_scales || 0}</Text>
-            <Text style={styles.statLabel}>Escalas</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.textDisabled} style={styles.statArrow} />
           </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
-        <Text style={styles.sectionLabel}>AÇÕES RÁPIDAS</Text>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/escala/nova")} testID="qa-new-scale">
-            <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="add-circle" size={26} color={colors.olive} />
+          {canEditScales && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/escala/nova")}>
+              <View style={[styles.actionIcon, { backgroundColor: "#E6F4EA" }]}>
+                <Ionicons name="calendar-number" size={24} color="#137333" />
+              </View>
+              <Text style={styles.actionText}>Nova Escala</Text>
+            </TouchableOpacity>
+          )}
+
+          {canEditRepertoire && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/musica/nova")}>
+              <View style={[styles.actionIcon, { backgroundColor: "#E8F0FE" }]}>
+                <Ionicons name="add-circle" size={24} color="#1A73E8" />
+              </View>
+              <Text style={styles.actionText}>Nova Música</Text>
+            </TouchableOpacity>
+          )}
+
+          {isLeader && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/convidar")}>
+              <View style={[styles.actionIcon, { backgroundColor: "#FEF7E0" }]}>
+                <Ionicons name="person-add" size={24} color="#B06000" />
+              </View>
+              <Text style={styles.actionText}>Convidar</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/avisos")}>
+            <View style={[styles.actionIcon, { backgroundColor: "#FCE8E6" }]}>
+              <Ionicons name="megaphone" size={24} color="#C5221F" />
             </View>
-            <Text style={styles.actionText}>Nova Escala</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/musica/nova")} testID="qa-new-song">
-            <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="musical-note" size={26} color={colors.terracotta} />
-            </View>
-            <Text style={styles.actionText}>Nova Música</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/convidar")} testID="qa-members">
-            <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="person-add" size={26} color={colors.info} />
-            </View>
-            <Text style={styles.actionText}>Novo Membro</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/avisos")} testID="qa-announcements">
-            <View style={[styles.actionIcon, { backgroundColor: colors.surfaceElevated }]}>
-              <Ionicons name="megaphone" size={26} color={colors.warning} />
-            </View>
-            <Text style={styles.actionText}>Avisos</Text>
+            <Text style={styles.actionText}>Ver Avisos</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Recent Announcements */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>AVISOS RECENTES</Text>
-          <TouchableOpacity onPress={() => router.push("/avisos")}>
-            <Text style={styles.linkBold}>Ver todos</Text>
-          </TouchableOpacity>
-        </View>
-        {announcements.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Nenhum aviso ainda</Text>
-          </View>
-        ) : (
-          announcements.map((a) => (
-            <View key={a.id} style={styles.annCard} testID={`announcement-${a.id}`}>
-              <Text style={styles.annTitle}>{a.title}</Text>
-              <Text style={styles.annMessage} numberOfLines={2}>{a.message}</Text>
-              <Text style={styles.annAuthor}>— {a.author_name}</Text>
+        {/* Next Scale */}
+        <Text style={styles.sectionTitle}>Próxima Escala</Text>
+        {nextScale ? (
+          <TouchableOpacity style={styles.scaleCard} onPress={() => router.push(`/escala/${nextScale.id}`)}>
+            <View style={styles.scaleHeader}>
+              <View style={styles.dateBlock}>
+                <Text style={styles.dateDay}>{nextScale.date.split("-")[2] || "00"}</Text>
+                <Text style={styles.dateMonth}>{formatDayName(nextScale.date)}</Text>
+              </View>
+              <View style={styles.scaleMeta}>
+                <Text style={styles.scaleTitle}>{nextScale.title}</Text>
+                <View style={styles.metaRow}>
+                  <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+                  <Text style={styles.metaText}>{nextScale.time || "Horário não definido"}</Text>
+                </View>
+              </View>
             </View>
-          ))
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Nenhuma escala agendada</Text>
+          </View>
         )}
 
-        <View style={{ height: 40 }} />
+        {/* Announcements */}
+        <Text style={styles.sectionTitle}>Últimos Avisos</Text>
+        {announcements.length > 0 ? (
+          announcements.map((ann) => (
+            <View key={ann.id} style={styles.annCard}>
+              <Text style={styles.annTitle}>{ann.title}</Text>
+              <Text style={styles.annMessage} numberOfLines={2}>
+                {ann.message}
+              </Text>
+              <Text style={styles.annAuthor}>
+                Por {ann.author_name} • {formatDateBR(ann.created_at)}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Nenhum aviso recente</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -236,62 +219,17 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
-  content: { padding: spacing.lg, paddingTop: spacing.md },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
-  greeting: { fontSize: 24, fontWeight: "600", color: colors.text },
-  ministry: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  sectionLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    letterSpacing: 1.2,
-    fontWeight: "600",
-    marginBottom: spacing.sm,
-    marginTop: spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.md,
-  },
-  heroCard: {
-    backgroundColor: colors.olive,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    ...shadow.card,
-  },
-  heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  heroDay: { color: colors.gold, fontSize: 12, fontWeight: "600", letterSpacing: 1.2, textTransform: "uppercase" },
-  heroDate: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 4 },
-  heroBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(230,185,122,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroTitle: { color: "#fff", fontSize: 22, fontWeight: "600", marginTop: spacing.md },
-  heroLocation: { color: "rgba(255,255,255,0.7)", fontSize: 14, marginTop: 4 },
-  heroFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
-  },
-  heroFooterText: { color: "rgba(255,255,255,0.7)", fontSize: 13 },
-  heroLink: { color: colors.gold, fontSize: 13, fontWeight: "600" },
-  statsRow: { flexDirection: "row", gap: 12, marginTop: spacing.md },
+  loadingContainer: { flex: 1, backgroundColor: colors.bg, justifyContent: "center", alignItems: "center" },
+  scroll: { padding: spacing.md, paddingBottom: 40 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.lg },
+  welcome: { fontSize: 22, fontWeight: "600", color: colors.text },
+  ministryName: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+  profileBtn: { padding: 4 },
+  statsGrid: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg },
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.md,
     alignItems: "flex-start",
     borderWidth: 1,
@@ -301,6 +239,7 @@ const styles = StyleSheet.create({
   statArrow: { position: "absolute", top: 12, right: 10 },
   statValue: { fontSize: 22, fontWeight: "600", color: colors.text, marginTop: 8 },
   statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", color: colors.text, marginBottom: spacing.sm, marginTop: spacing.md },
   actionsRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md },
   actionBtn: { alignItems: "center", flex: 1 },
   actionIcon: {
@@ -312,6 +251,31 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   actionText: { fontSize: 11, color: colors.text, textAlign: "center" },
+  scaleCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.sm,
+  },
+  scaleHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  dateBlock: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    minWidth: 60,
+  },
+  dateDay: { fontSize: 20, fontWeight: "700", color: colors.olive },
+  dateMonth: { fontSize: 10, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase", marginTop: 2 },
+  scaleMeta: { flex: 1, gap: 4 },
+  scaleTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaText: { fontSize: 13, color: colors.textSecondary },
   annCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -322,16 +286,15 @@ const styles = StyleSheet.create({
   },
   annTitle: { fontSize: 15, fontWeight: "600", color: colors.text },
   annMessage: { fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 19 },
-  annAuthor: { fontSize: 11, color: colors.textDisabled, marginTop: 6, fontStyle: "italic" },
+  annAuthor: { fontSize: 11, color: colors.textDisabled, marginTop: 8 },
   emptyCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 8,
+    borderStyle: "dashed",
   },
-  emptyText: { fontSize: 14, color: colors.textSecondary },
-  linkBold: { color: colors.olive, fontWeight: "600", fontSize: 13 },
-});
+  emptyText: { color: colors.textSecondary, fontSize: 14
