@@ -1,16 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://worshipmanageraapp.onrender.com';
+const TOKEN_KEY = '@WorshipManager:token';
 
-const api = async (endpoint: string, options: any = {}) => {
+// 1. Exportações necessárias para o login.tsx funcionar
+export const setToken = async (token: string): Promise<void> => {
+  await AsyncStorage.setItem(TOKEN_KEY, token);
+};
+
+export const getToken = async (): Promise<string | null> => {
+  return await AsyncStorage.getItem(TOKEN_KEY);
+};
+
+// 2. A função api que já estavas a usar, otimizada
+export const api = async (endpoint: string, options: any = {}) => {
   try {
-    const token = await AsyncStorage.getItem('@WorshipManager:token');
+    const token = await getToken();
     
-    // Garante que a URL fique correta
+    // Garante o prefixo /api e formatação da URL
     const fullEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
     const fullUrl = `${API_URL}${fullEndpoint}`;
 
-    console.log(`📡 Chamando: ${fullUrl}`); // ← Para debug
+    console.log(`📡 Chamando: ${fullUrl}`);
 
     const config: RequestInit = {
       method: options.method || 'GET',
@@ -38,5 +49,3 @@ const api = async (endpoint: string, options: any = {}) => {
     throw error;
   }
 };
-
-export { api };
